@@ -1,0 +1,50 @@
+---
+title: Firebase Google Sign-In
+description: Configure the Firebase Google sign-in provider.
+---
+
+## Overview
+
+The starter keeps authentication intentionally narrow: users sign in with Google through Firebase Auth. There is no password database, reset-token table, email verification route, or Better Auth adapter.
+
+## Firebase Setup
+
+1. Create or open a Firebase project.
+2. Enable **Authentication → Sign-in method → Google**.
+3. Add your local and production domains to Firebase authorized domains.
+4. Create a Web App and copy the public client config.
+5. Create a service account key for Firebase Admin.
+
+## Environment Variables
+
+```ini
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+## Optional Cloudflare Turnstile Gate
+
+Turnstile can be enabled in front of the Google sign-in button. The auth modal renders Cloudflare verification first, keeps the Google button hidden while verification is running, and shows the Google button only after the Turnstile token is accepted by `/api/auth/turnstile`.
+
+```ini
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"
+```
+
+Create these keys from Cloudflare Turnstile and add every domain that serves the auth modal, including local or preview domains if you want to test the widget outside production. If either value is missing, the starter disables the Turnstile gate.
+
+## Local User Sync
+
+Firebase is the identity provider, while PostgreSQL remains the product database. On session login, `modules/auth/user-sync.ts` writes or updates the local `user` row using the Firebase UID as `user.id`.
+
+That local row owns product fields such as `credits`, `role`, `planKey`, and ban status.
+
+## Extending Auth Later
+
+Provider-specific code belongs in `extensions/auth/*`. App-facing session, admin, and user-sync logic should stay in `modules/auth` so a future provider can be added without changing protected routes and APIs.

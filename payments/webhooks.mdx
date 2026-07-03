@@ -1,0 +1,59 @@
+---
+title: Webhooks
+description: How Stripe webhooks are processed.
+---
+
+## Endpoint
+
+```
+POST /api/payments/stripe/webhook
+```
+
+## Security
+
+### Signature Verification
+
+Every webhook is verified with Stripe's official webhook helper:
+
+```typescript
+const event = constructStripeWebhookEvent(rawBody, signature);
+```
+
+The signature is in the `stripe-signature` header. `constructStripeWebhookEvent()` wraps `stripe.webhooks.constructEvent(...)` and uses `STRIPE_WEBHOOK_SECRET`.
+
+### Idempotency
+
+Duplicate webhooks are handled by checking `providerPaymentId` in the `payment` table. If a payment with the same ID already exists, the webhook is acknowledged without re-processing.
+
+## Supported Events
+
+| Event | Action |
+|-------|--------|
+| `checkout.session.completed` | Create payment, grant credits, send email |
+| `invoice.paid` | Process subscription renewal payment |
+| `customer.subscription.created` | Mark subscription active when applicable |
+| `customer.subscription.updated` | Mark subscription active when applicable |
+| `customer.subscription.deleted` | Mark subscription canceled |
+
+## Setup
+
+In your Stripe Dashboard, set the webhook URL to:
+
+```
+https://your-domain.com/api/payments/stripe/webhook
+```
+
+And configure the webhook secret in `.env`:
+
+```ini
+STRIPE_WEBHOOK_SECRET="whsec_your_secret"
+```
+
+## Debugging
+
+If webhooks aren't working:
+
+1. Check Stripe Dashboard webhook logs for delivery status
+2. Verify `STRIPE_WEBHOOK_SECRET` matches your Stripe settings
+3. Ensure the endpoint is publicly accessible (not behind auth)
+4. Check server logs for signature verification errors

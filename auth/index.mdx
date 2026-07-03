@@ -1,0 +1,55 @@
+---
+title: Authentication Overview
+description: Firebase Google authentication and server session model.
+---
+
+## Overview
+
+NimBuild Starter uses Firebase Auth for Google sign-in and HttpOnly server session cookies for server-side authorization. Firebase-specific server code is hidden behind the auth provider adapter so API routes do not depend on Firebase Admin directly. Email/password login, email verification, forgot password, and reset password flows have been removed.
+
+### Supported Auth Methods
+
+- **Firebase Google sign-in** — The only supported user-facing auth method.
+
+### Sign-In Flow
+
+1. User opens the global sign-in modal.
+2. If Cloudflare Turnstile is configured, the modal renders the Turnstile check before the Google button. Low-risk visitors pass through automatically; higher-risk visitors complete the visible confirmation control first.
+3. After Turnstile passes, the modal shows the Google sign-in button.
+4. Firebase client SDK returns an ID token.
+5. The browser posts the ID token to `/api/auth/session-login`.
+6. The server verifies the token through `modules/auth/provider.ts` and creates a server session cookie.
+7. `modules/auth/user-sync.ts` syncs the Firebase user into the local `user` table.
+
+### Configuration
+
+Firebase client and server adapters live under `extensions/auth/firebase`:
+
+```typescript
+// Browser SDK
+getFirebaseClientAuth();
+getGoogleAuthProvider();
+
+// Server provider adapter
+firebaseAuthProvider;
+```
+
+The browser uses `NEXT_PUBLIC_FIREBASE_*` values. Server session verification uses `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` inside the Firebase extension. Application-facing server code should call `modules/auth` or `modules/auth/provider.ts`, not Firebase Admin directly.
+
+Cloudflare Turnstile is optional. When both `NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY` and `CLOUDFLARE_TURNSTILE_SECRET_KEY` are set, `features/auth/components/turnstile-gate.tsx` gates the Google button and `/api/auth/turnstile` verifies the token with Cloudflare Siteverify. When either value is missing, the gate is disabled so local development can still sign in.
+
+### Session Management
+
+- Sessions are HttpOnly provider-backed session cookies, not database session rows.
+- Local user, role, credits, ban status, and plan live in the `user` table.
+- Session login syncs the local user. Request-time authorization checks the session cookie, resolves the local user, and checks ban status.
+- Protected routes and APIs use `getActiveSessionUser()` from `modules/auth`.
+- `getActiveSessionUser()` keeps a short in-process cache of local access fields. Admin mutations that change role, ban state, deletion, or access-sensitive plan markers must call `invalidateAuthAccessCache(userId)` after a successful write.
+
+### Route Protection
+
+| Route Group   | Protection                                   |
+| ------------- | -------------------------------------------- |
+| `(protected)` | Requires login — redirects to `/?auth=login` |
+| `(admin)`     | Requires `role='admin'`                      |
+| `(marketing)` | Public                                       |

@@ -1,0 +1,129 @@
+---
+title: Environment Variables
+description: Complete reference for all environment variables.
+---
+
+## Required Variables
+
+These variables are **required** for the application to function:
+
+### Database
+
+```ini
+DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+```
+
+### Authentication
+
+```ini
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+### Application URL
+
+```ini
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+## Service Integrations
+
+### Stripe (Payments)
+
+Required for Stripe subscription checkout and webhook processing:
+
+```ini
+STRIPE_SECRET_KEY="your-stripe-api-key"
+STRIPE_WEBHOOK_SECRET="whsec_..."
+```
+
+For testing without real payments:
+
+```ini
+STRIPE_SIMULATE="true"
+```
+
+### Resend (Email)
+
+Required for purchase confirmations:
+
+```ini
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild <onboarding@resend.dev>"
+RESEND_REPLY_TO="support@example.com"
+```
+
+### Volcengine (AI Tools)
+
+Required for the AI tools workspace and Xiaohongshu copy generation:
+
+```ini
+VOLCENGINE_API_KEY="your-volcengine-api-key"
+VOLCENGINE_BASE_URL="https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+VOLCENGINE_MODEL="your-volcengine-model-id"
+```
+
+### Cron Jobs
+
+Use either bearer-token auth:
+
+```ini
+CRON_SECRET="your-cron-secret"
+```
+
+Or basic auth:
+
+```ini
+CRON_JOBS_USERNAME="your_username"
+CRON_JOBS_PASSWORD="your_password"
+```
+
+## Optional Analytics
+
+```ini
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID="G-..."
+NEXT_PUBLIC_ANALYTICS_ENABLE_IN_DEVELOPMENT="false"
+```
+
+## Optional Cloudflare Turnstile
+
+Used by the login/signup modal to verify visitor risk before showing the Google sign-in button. Configure both values to enable the gate:
+
+```ini
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"
+```
+
+If either value is missing, Turnstile is disabled and Google sign-in is shown directly.
+
+## Optional Storage (Cloudflare R2 or S3-Compatible)
+
+User uploads are handled by `/api/upload/file` for ordinary files and `/api/upload/image` for image-only uploads. Both routes call the storage facade in `extensions/storage`, so feature code does not depend on Cloudflare R2, UCloud US3, or any specific object storage SDK. When storage credentials are missing, the starter returns a data URL fallback for local testing.
+
+Cloudflare R2 example:
+
+```ini
+STORAGE_PROVIDER="r2"
+R2_ACCOUNT_ID="your-account-id"
+R2_BUCKET_NAME="your-bucket"
+R2_ACCESS_KEY_ID="your-access-key"
+R2_SECRET_ACCESS_KEY="your-secret-key"
+R2_PUBLIC_URL="https://your-storage-domain.example.com"
+```
+
+Generic S3-compatible storage, including UCloud US3:
+
+```ini
+STORAGE_PROVIDER="s3-compatible"
+STORAGE_ENDPOINT="https://s3-cn-bj.ufileos.com"
+STORAGE_BUCKET_NAME="your-bucket"
+STORAGE_REGION="cn-bj"
+STORAGE_ACCESS_KEY_ID="your-access-key"
+STORAGE_SECRET_ACCESS_KEY="your-secret-key"
+STORAGE_PUBLIC_URL="https://your-storage-domain.example.com"
+```

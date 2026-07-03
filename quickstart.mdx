@@ -1,0 +1,106 @@
+---
+title: Quickstart
+description: Get your NimBuild Starter project running in minutes.
+---
+
+## Prerequisites
+
+### 1. Node.js
+
+Node.js runs the Next.js dev server, local build scripts, and the project toolchain.
+
+```bash
+# Check whether Node.js is installed
+node --version
+```
+
+### 2. pnpm
+
+This project uses `pnpm` as its package manager, and the repository is currently pinned to `pnpm 10`.
+
+```bash
+# Install pnpm
+npm install -g pnpm
+
+# Check the pnpm version
+pnpm --version
+```
+
+### 3. PostgreSQL connection details
+
+PostgreSQL database
+
+## Installation
+
+### 1. Get the project source
+
+```bash
+git clone git@github.com:hayley-sun/nimbuild-to-production.git
+cd nimbuild-to-production
+```
+
+### 2. Install dependencies
+
+```bash
+pnpm install
+```
+
+### 3. Configure environment variables
+
+Copy the example environment file to your local environment file:
+
+```bash
+cp .env.example .env.local
+```
+
+Then edit `.env.local` and fill in your values.
+
+At minimum, you need:
+
+```ini
+DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+See [Environment Variables](./environment) for the full list.
+
+### 4. Set up the database
+
+```bash
+pnpm db:push
+```
+
+This pushes the Drizzle schema to your database. For production, use migrations:
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+```
+
+### 5. Start the dev server
+
+```bash
+pnpm dev
+```
+
+Visit `http://localhost:3000` and sign in with the Google account you want to make an admin.
+
+### 6. Promote your account to admin
+
+```bash
+ADMIN_EMAIL=admin@example.com pnpm admin:setup
+```
+
+## What's Next?
+
+- [Project Structure](./project-structure) — Understand the codebase layout
+- [Authentication](./auth) — Configure Firebase Google sign-in
+- [Payments](./payments) — Set up billing and subscriptions
+- [Customization](./customization) — Add product-specific workflows

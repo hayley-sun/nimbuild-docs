@@ -1,0 +1,50 @@
+---
+title: Firebase Google 登录
+description: 配置 Firebase Google 登录提供商。
+---
+
+## 概述
+
+当前 starter 将认证边界收窄为一种方式：用户通过 Firebase Auth 使用 Google 登录。不再维护密码数据库、重置 token 表、邮箱验证路由或 Better Auth adapter。
+
+## Firebase 设置
+
+1. 创建或打开 Firebase 项目。
+2. 启用 **Authentication → Sign-in method → Google**。
+3. 将本地和生产域名加入 Firebase authorized domains。
+4. 创建 Web App，并复制公开客户端配置。
+5. 创建 Firebase Admin service account key。
+
+## 环境变量
+
+```ini
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+## 可选 Cloudflare Turnstile 门控
+
+可以在 Google 登录按钮前启用 Turnstile。登录弹窗会先渲染 Cloudflare 验证，在验证过程中隐藏 Google 按钮，并且只有 `/api/auth/turnstile` 接受 Turnstile token 后才显示 Google 按钮。
+
+```ini
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"
+```
+
+这些 key 需要在 Cloudflare Turnstile 中创建，并把所有会展示登录弹窗的域名加入允许列表；如果要在本地或预览环境测试，也需要加入对应域名。任一值缺失时，starter 会关闭 Turnstile 门控。
+
+## 本地用户同步
+
+Firebase 是身份提供商，PostgreSQL 仍然是产品数据库。创建服务端 session 时，`modules/auth/user-sync.ts` 会使用 Firebase UID 作为 `user.id` 写入或更新本地 `user` 记录。
+
+本地用户记录负责保存产品字段，例如 `credits`、`role`、`planKey` 和封禁状态。
+
+## 后续扩展认证
+
+提供商专属代码放在 `extensions/auth/*`。应用侧 session、管理员鉴权和用户同步逻辑保留在 `modules/auth`，这样未来增加其他 provider 时不需要改受保护路由和 API。

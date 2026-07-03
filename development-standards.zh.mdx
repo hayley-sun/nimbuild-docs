@@ -1,0 +1,117 @@
+---
+title: 开发规范
+description: 扩展 starter 时需要遵守的模块边界、API 鉴权和前后端规则。
+---
+
+这个 starter 的定位是产品基座。新增代码应保持框架路由轻量、业务逻辑可测试，并让第三方提供商可以替换。
+
+## 选择所属层
+
+先判断行为属于哪一层：
+
+| 层级 | 适合放在这里的代码 |
+| ---- | ------------------ |
+| `app/[locale]/*` | 页面、layout、route group 或 metadata 组合。 |
+| `app/api/**/route.ts` | 解析请求并返回 API 响应。 |
+| `features/<feature>/components` | 某个功能自己的 UI。 |
+| `features/<feature>/pages` | 被 App Router 页面使用的功能页组合。 |
+| `features/<feature>/actions` | Client Component 需要调用的 Server Action。 |
+| `features/<feature>/server` | 某个功能自己的后端查询、变更或工作流。 |
+| `features/<feature>/support` | 某个功能自己的共享辅助代码，并且同时适合前端和后端使用。 |
+| `modules/*` | 可复用领域逻辑，不应依赖 app 路由、features 或 UI 组件。 |
+| `extensions/*` | 第三方 SDK 或 provider 到模块接口的适配层。 |
+| `lib/client-api/*` | 浏览器专用 API hooks 和客户端框架胶水。 |
+| `components/*` | 全局复用 UI。 |
+
+不要把 provider SDK 细节放进 API route。API route 应调用 modules 或 feature server 函数。
+
+## 导入边界
+
+主要边界由 `eslint.config.mjs` 强制执行。
+
+- Client/UI 文件不应导入 DB client、provider admin SDK、支付/邮件/存储适配器，或 `features/*/server`。
+- 后端文件不应导入 React UI 组件，或 `modules/auth/client` 这类浏览器专用 helper。
+- `modules/*` 和 `extensions/*` 不应依赖 `app/*`、`features/*` 或 `components/*`。
+- 如果确实需要新增例外，必须在 `eslint.config.mjs` 中显式声明，并更新 `tests/config/eslint-boundaries.test.ts`。
+
+## API Route 规范
+
+大多数 JSON API route 应使用 `modules/auth/api-handler.ts` 中的 `defineApiHandler(...)`：
+
+```typescript
+export const POST = defineApiHandler({ auth: "admin" }, async (req, { user }) => {
+  // 解析请求数据，调用 feature/server 或 module 代码，然后返回 apiSuccess/apiCodeError。
+});
+```
+
+每个 `app/api/**/route.ts` 都必须在 `modules/auth/api-policy.ts` 中声明鉴权模式：
+
+| 模式 | 含义 |
+| ---- | ---- |
+| `public` | 不需要 session。 |
+| `user` | 需要已登录且未被封禁的用户。 |
+| `admin` | 需要已登录管理员。 |
+| `cron-secret` | 使用 cron shared secret 校验。 |
+| `stripe-webhook` | 使用 Stripe 签名校验和自定义 webhook 响应。 |
+
+只有在需要自定义协议行为时，route 才可以不使用 `defineApiHandler(...)`，例如 Stripe webhook 状态码/响应体、redirect、HTML 响应或公开状态探针。但这些 route 仍然需要显式 policy。
+
+HTTP status 策略：
+
+- 未登录访问 user/admin route 返回 `401`；
+- 已登录但不是 admin 访问 admin route 返回 `403`；
+- 可预期的业务错误通常返回 HTTP `200`，并在 envelope 中返回非 OK `ApiCode`；
+- 非预期系统异常返回 HTTP `500` 和 `ApiCode.INTERNAL_ERROR`。
+
+module 和 feature server 函数应为失败情况返回稳定的 `ApiCode`。用户可见文案由 API/client 层通过 `getApiMessage(...)` 组装。
+
+## Server Action 规范
+
+需要鉴权的 Server Action 应使用 `modules/auth/action-handler.ts` 中的 `defineServerAction(...)`：
+
+```typescript
+export const updateThing = defineServerAction("admin", async ({ user }, id: string) => {
+  // user 是已解析的 access user。
+});
+```
+
+不要在单个 Server Action 内手写 `isAdmin()` 或 `getActiveSessionUser()` 检查。Action 应只做编排：鉴权、调用 feature server/module 函数、把 `ApiCode` 失败转换成文案，并在需要时 revalidate path。
+
+## Auth Provider 边界
+
+认证提供商细节隐藏在 `modules/auth/provider.ts` 后面。
+
+- Firebase 服务端代码属于 `extensions/auth/firebase/*`。
+- API route、feature server module 和 app layout 应使用 `modules/auth` 导出，不要直接导入 Firebase Admin。
+- 浏览器登录代码可以使用 `modules/auth/client.ts`，它包装了浏览器侧 Firebase adapter。
+- 如果未来把 Firebase 替换成 Better Auth 等 provider，应保持 API route 签名稳定，只替换 `modules/auth/provider.ts` 背后的 adapter。
+
+`getActiveSessionUser()` 通过 `modules/auth/access-cache.ts` 缓存本地用户访问字段。默认 store 是短 TTL 进程内内存缓存。代码应依赖 store 接口，这样后续可以替换成 Redis 或 Vercel Runtime Cache。
+
+admin mutation 成功修改访问相关字段后，必须清理该用户缓存：
+
+- role 变更；
+- ban 或 unban；
+- 删除用户；
+- plan marker 变更，如果该值被访问敏感 UI 或 API 行为使用。
+
+使用 `modules/auth/session.ts` 中的 `invalidateAuthAccessCache(userId)` 做定向失效。
+
+## Client API Helpers
+
+`modules/client-api/*` 只放共享 DTO、API envelope、result types 和 `ApiCode` 定义。依赖 React、`next-intl` 或 UI toast 组件的浏览器 hooks 应放在 `lib/client-api/*`。
+
+Client Components 中使用 `lib/client-api/use-api-fetch.ts` 导出的 `useApiFetch()`，以统一附加 locale header 和标准错误 toast。
+
+## 测试规则
+
+变更代码时同步补充聚焦测试：
+
+- API 鉴权策略覆盖：`tests/app/api-auth-policy.test.ts`。
+- API handler 行为：`tests/modules/auth/api-handler.test.ts`。
+- Auth/session 行为：`tests/modules/auth/*`。
+- 导入边界：`tests/config/eslint-boundaries.test.ts`。
+- Feature server 逻辑：`tests/features/<feature>/server/*`。
+- Module 逻辑：`tests/modules/<module>/*`。
+
+修改 route、UI、配置或 docs 导航后运行 `pnpm lint`。修改对应业务区域后运行聚焦的 `pnpm test ...` 命令。

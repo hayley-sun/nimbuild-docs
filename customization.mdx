@@ -1,0 +1,104 @@
+---
+title: Customization
+description: How to customize pricing, product workflows, theme, locales, and app pages.
+---
+
+## Modify Products and Pricing
+
+Edit `constants/billing.ts`.
+
+The starter ships with four subscription plans generated from `subscriptionTierConfigs`: Basic monthly, Basic yearly, Pro monthly, and Pro yearly. Replace the Stripe Price IDs with IDs from your own Dashboard before accepting payments.
+
+```typescript
+const subscriptionTierConfigs = [
+  {
+    key: "basic",
+    plans: {
+      monthly: {
+        creditsPerCycle: 1000,
+        stripePriceId: "price_your_basic_monthly",
+      },
+      yearly: {
+        creditsPerCycle: 12000,
+        stripePriceId: "price_your_basic_yearly",
+        grantSchedule: {
+          mode: "installments",
+          grantsPerCycle: 12,
+          intervalMonths: 1,
+          creditsPerGrant: 1000,
+          initialGrants: 1,
+        },
+      },
+    },
+  },
+];
+```
+
+Plan keys are derived as `${tierKey}_${billingCycle}`. Annual plans use `grantSchedule` for monthly installment credit grants.
+
+## Add Product-Specific Workflows
+
+Add product-specific workflows under `features/*` and keep server-only provider or billing logic inside `features/*/server`, `modules/*`, or `extensions/*`. If a workflow spends credits before external work completes, preserve the `createCreditCompensation(...)` refund pattern.
+
+## Add Blog Posts
+
+Add blog source files under `content/blog/<slug>/`.
+
+Each post should provide one MDX file per supported locale, such as `en.mdx` and `zh.mdx`, and export a `blog` metadata object:
+
+```mdx
+export const blog = {
+  title: "Post title",
+  description: "Short summary",
+  author: {
+    name: "NimBuild",
+    src: "/logo.png",
+  },
+  date: "2026-05-26",
+};
+```
+
+After adding, renaming, or removing posts, run `pnpm generate:blog-manifest` so `features/blog/blog-manifest.generated.ts` matches the source files.
+
+## Add a New Language
+
+1. Copy `messages/en.json` to `messages/XX.json`
+2. Copy `messages/seo.en.json` to `messages/seo.XX.json`
+3. Translate both files
+4. Add the locale to `i18n.config.ts`
+
+```typescript
+export const locales = ["en", "zh", "XX"] as const;
+```
+
+5. Add matching docs MDX files in `content/docs`, such as `quickstart.XX.mdx`
+6. Update docs locale labels in `features/docs/localization.ts` and Fumadocs i18n if the docs site should expose the new locale
+
+`proxy.ts` and `lib/i18n.ts` read from `i18n.config.ts`, so most locale routing follows that shared config.
+
+## Customize Theme
+
+Colors are defined in `app/globals.css` using CSS custom properties:
+
+```css
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  /* ... */
+}
+```
+
+Dark mode variables are in the `.dark` class.
+
+Fumadocs CSS is imported directly in `app/[locale]/docs/layout.tsx` from `fumadocs-ui/style.css`, which is compatible with the project's Tailwind v4 setup.
+
+## Add New Protected Pages
+
+1. Create a page under `app/[locale]/(protected)/your-page/page.tsx`
+2. Compose route-specific UI directly in that `page.tsx`, using feature components as needed
+3. Put server queries or mutations in the matching `features/*/server` module
+4. Add navigation keys in `components/navigation/config.ts`
+5. Add user-facing labels in both `messages/en.json` and `messages/zh.json`
+
+The protected layout calls `getActiveSessionUser()` from `modules/auth`, so pages in this route group require an authenticated user.

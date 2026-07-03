@@ -1,0 +1,79 @@
+---
+title: 部署指南
+description: 将 NimBuild Starter 应用部署到生产环境。
+---
+
+## 前提条件
+
+部署前确保你有：
+
+- PostgreSQL 数据库
+- Stripe 账号和 API Key
+- Resend API Key 和已验证发送域名
+- Firebase 项目和 service account 凭据
+- AI 工具使用的火山引擎 API 凭据
+- （可选）Cloudflare R2 或 S3 兼容存储
+
+## 部署
+
+### 1. 数据库迁移
+
+首次部署后：
+
+```bash
+pnpm db:push
+```
+
+### 2. 配置 Webhook
+
+在 Stripe Dashboard 中设置 webhook URL：
+
+```
+https://your-domain.com/api/payments/stripe/webhook
+```
+
+### 3. 设置定时任务
+
+用于年付订阅积分发放，配置每小时调用：
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-domain.com/api/cron/subscription-grants
+```
+
+用于处理过期积分 bucket，再配置第二个定时任务：
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-domain.com/api/cron/credit-expiry
+```
+
+### 4. 创建管理员账户
+
+```bash
+ADMIN_EMAIL=admin@example.com pnpm admin:setup
+```
+
+### 5. 验证环境
+
+确保生产环境 `.env` 的以下值正确：
+
+- `NEXT_PUBLIC_APP_URL` — 实际域名
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` — Firebase Auth 域名
+- `FIREBASE_CLIENT_EMAIL` 和 `FIREBASE_PRIVATE_KEY` — Firebase Admin service account 凭据
+- `RESEND_API_KEY` — Resend API Key
+- `RESEND_FROM_EMAIL` — 交易邮件使用的已验证发件地址
+- `RESEND_REPLY_TO` — 可选默认回复地址
+- `VOLCENGINE_API_KEY`、`VOLCENGINE_BASE_URL` 和 `VOLCENGINE_MODEL` — AI 工具 provider 配置
+- `CRON_SECRET` 或 `CRON_JOBS_USERNAME` + `CRON_JOBS_PASSWORD` — 定时任务鉴权
+
+## 部署后检查清单
+
+- [ ] 数据库已迁移
+- [ ] Stripe 中已配置 Webhook URL
+- [ ] 订阅积分发放和积分过期定时任务已设置
+- [ ] 管理员账户已创建
+- [ ] 生产邮件使用的 Resend 发送域名已验证
+- [ ] Firebase authorized domains 已包含生产域名
+- [ ] 火山引擎 AI provider 凭据已配置
+- [ ] 如使用分析工具，其 Key 已配置

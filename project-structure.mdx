@@ -1,0 +1,108 @@
+---
+title: Project Structure
+description: Overview of the codebase layout and key directories.
+---
+
+## Directory Overview
+
+```
+├── app/[locale]/              # Next.js App Router routes with next-intl locale segment
+│   ├── (marketing)/           # Home, pricing, blog, and legal pages
+│   ├── (protected)/           # Authenticated app pages: settings and credits
+│   ├── (admin)/admin/         # Admin dashboard, users, subscriptions, and credit ledger
+│   ├── (tools)/tools/         # Authenticated AI tool workspace pages
+│   └── docs/                  # Fumadocs documentation routes
+├── app/api/                   # Route handlers
+│   ├── auth/                  # Firebase session endpoints
+│   ├── payments/stripe/        # Stripe checkout, webhook, and redirect fallback
+│   ├── upload/                # User upload endpoints
+│   ├── admin/                 # Admin mutation APIs
+│   ├── user/                  # User profile, credits, and admin-status APIs
+│   └── cron/                  # Scheduled subscription grants and credit expiry
+├── features/                  # Product feature modules
+│   ├── admin/                 # Admin UI, actions, server queries, and mutations
+│   ├── auth/                  # Global sign-in modal, auth UI, and Firebase session helpers
+│   ├── ai-tools/              # AI tool actions, UI, history, and server workflows
+│   ├── blog/                  # Blog source loader and blog-owned components
+│   ├── docs/                  # Fumadocs source, metadata, i18n, and layout helpers
+│   ├── landing/               # Marketing page sections
+│   └── user-console/          # Settings and credits pages, profile API support, and queries
+├── modules/                   # Reusable domain modules
+│   ├── analytics/             # Analytics component composition entry
+│   ├── ai-tools/              # Shared AI tool schemas and typed payloads
+│   ├── auth/                  # Firebase session, user sync, and admin authorization helpers
+│   ├── billing/               # Billing display and subscription credit schedule helpers
+│   ├── client-api/            # DTOs shared with browser clients
+│   ├── credits/               # Credit ledger mutations and refund compensation
+│   ├── upload/                # User file and image upload server logic
+│   └── db/                    # Drizzle client and schema
+├── extensions/                # Third-party adapters
+│   ├── analytics/google/      # Google Analytics component
+│   ├── ai/volcengine/         # Volcengine OpenAI-compatible AI provider adapter
+│   ├── auth/firebase/         # Firebase client and admin SDK adapters
+│   ├── email/                 # Provider-hidden email facade, templates, and adapters
+│   ├── payment/stripe/         # Stripe checkout and webhook accounting
+│   └── storage/               # Provider-hidden storage facade with R2 and S3-compatible adapters
+├── components/                # App-wide UI: brand, layout, shared content helpers, and primitives
+├── constants/                 # Billing and website configuration
+├── content/blog/              # Blog source content (MDX)
+├── content/docs/              # Documentation source content (MDX)
+├── messages/                  # UI and SEO translations (en, zh)
+├── public/                    # Public images, logos, robots.txt, and generated docs CSS
+├── scripts/                   # Local maintenance and generation scripts
+└── drizzle/                   # Drizzle migration files
+```
+
+## Route Groups
+
+| Group | Path | Access | Purpose |
+|-------|------|--------|---------|
+| `(marketing)` | `/`, `/pricing`, `/blog`, legal pages | Public | Marketing and SEO pages |
+| `(protected)` | `/credits`, `/settings` | Auth required | User console |
+| `(tools)` | `/tools`, `/tools/xiaohongshu` | Auth required | AI tool workspace |
+| `(admin)` | `/admin`, `/admin/users`, `/admin/subscriptions`, `/admin/credits` | Admin role | Management panel |
+| `docs` | `/docs/*`, `/zh/docs/*` | Public | Documentation |
+
+## Boundary Rules
+
+- App routes stay thin: parse params or request bodies, then call feature/server or module code.
+- Client Components can import feature actions, feature UI, shared components, shared types, and client-safe helpers.
+- Client Components should not import `features/*/server`, `modules/db`, `modules/credits`, provider adapters, payment adapters, email adapters, or storage adapters.
+- Backend modules should not import React components.
+- API routes should use `defineApiHandler(...)` and must be declared in `modules/auth/api-policy.ts`, unless they deliberately need custom protocol handling.
+- These boundaries are enforced by `eslint.config.mjs`; see [Development Standards](./development-standards) before adding a new module or exception.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `extensions/auth/firebase/client.ts` | Browser-side Firebase client initialization |
+| `extensions/auth/firebase/admin.ts` | Low-level Firebase Admin initialization used by the Firebase provider adapter |
+| `extensions/auth/firebase/provider.ts` | Firebase implementation of the auth provider interface |
+| `modules/auth/client.ts` | Browser-side Firebase Google sign-in/session helpers |
+| `modules/auth/action-handler.ts` | Standard Server Action wrapper for user/admin authorization |
+| `modules/auth/access-cache.ts` | Replaceable cache store for local auth access fields |
+| `modules/auth/provider.ts` | App-facing auth provider interface and active provider binding |
+| `modules/auth/api-handler.ts` | Standard API route wrapper for auth, locale, and error responses |
+| `modules/auth/api-policy.ts` | Explicit auth policy list for every `app/api` route |
+| `modules/auth/session.ts` | Session cookie resolution, local access cache, and cache invalidation |
+| `modules/auth/user-sync.ts` | Provider identity to local user synchronization |
+| `modules/auth/index.ts` | Server-facing auth/session/admin exports |
+| `modules/db/schema.ts` | Drizzle schema source of truth |
+| `modules/ai-tools/xiaohongshu.ts` | Shared Xiaohongshu copywriter input/output schemas |
+| `modules/credits/ledger.ts` | Credit balance and ledger mutations |
+| `modules/credits/compensation.ts` | Refund-on-failure compensation helper |
+| `modules/upload/file.ts` | User file and image upload validation and storage write |
+| `constants/billing.ts` | Subscription plan keys, prices, credits, and Stripe Price IDs |
+| `extensions/analytics/google/` | Google Analytics integration |
+| `extensions/ai/volcengine/` | Volcengine provider adapter for AI tool generation |
+| `extensions/payment/stripe/` | Stripe checkout, signature verification, webhook service, and accounting |
+| `extensions/storage/` | Provider-hidden storage facade with Cloudflare R2 and S3-compatible adapters |
+| `features/auth/components/auth-modal-provider.tsx` | Global Google sign-in modal and `?auth=login` handling |
+| `lib/client-api/use-api-fetch.ts` | Browser API fetch hook with locale header and standard error toast |
+| `features/blog/source.ts` | Blog manifest loader for `content/blog` MDX posts |
+| `features/blog/components/` | Blog card and blog layout components |
+| `features/docs/source.ts` | Fumadocs loader for generated `.source/server` output |
+| `source.config.ts` | Fumadocs MDX source configuration |
+| `proxy.ts` | Next.js proxy for locale routing |
+| `i18n.config.ts` | Locale configuration |

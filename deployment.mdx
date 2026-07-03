@@ -1,0 +1,79 @@
+---
+title: Deployment
+description: Deploy your NimBuild Starter app to production.
+---
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+- PostgreSQL database
+- Stripe account and API key
+- Resend API key and verified sending domain
+- Firebase project and service account credentials
+- Volcengine API credentials for AI tools
+- (Optional) Cloudflare R2 or S3-compatible storage
+
+## Deploy
+
+### 1. Database Migration
+
+After first deploy:
+
+```bash
+pnpm db:push
+```
+
+### 2. Configure Webhook
+
+In Stripe Dashboard, set webhook URL:
+
+```
+https://your-domain.com/api/payments/stripe/webhook
+```
+
+### 3. Set Up Cron Job
+
+For annual subscription credit grants, configure a cron job to call hourly:
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-domain.com/api/cron/subscription-grants
+```
+
+For expiring credit buckets, configure a second cron job:
+
+```bash
+curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-domain.com/api/cron/credit-expiry
+```
+
+### 4. Create Admin Account
+
+```bash
+ADMIN_EMAIL=admin@example.com pnpm admin:setup
+```
+
+### 5. Verify Environment
+
+Make sure production `.env` has correct values for:
+
+- `NEXT_PUBLIC_APP_URL` — Your actual domain
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` — Your Firebase Auth domain
+- `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` — Firebase Admin service account credentials
+- `RESEND_API_KEY` — Resend API key
+- `RESEND_FROM_EMAIL` — Verified sender address for transactional email
+- `RESEND_REPLY_TO` — Optional default reply-to address
+- `VOLCENGINE_API_KEY`, `VOLCENGINE_BASE_URL`, and `VOLCENGINE_MODEL` — AI tool provider settings
+- `CRON_SECRET` or `CRON_JOBS_USERNAME` + `CRON_JOBS_PASSWORD` — Cron authentication
+
+## Post-Deploy Checklist
+
+- [ ] Database migrated
+- [ ] Webhook URL configured in Stripe
+- [ ] Cron jobs set up for subscription grants and credit expiry
+- [ ] Admin account created
+- [ ] Resend sending domain verified for production email
+- [ ] Firebase authorized domains include the production domain
+- [ ] Volcengine AI provider credentials configured
+- [ ] Analytics keys configured if used

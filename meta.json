@@ -1,0 +1,19 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "quickstart",
+    "project-structure",
+    "development-standards",
+    "environment",
+    "---Getting Started---",
+    "auth",
+    "payments",
+    "email",
+    "admin",
+    "---Guides---",
+    "deployment",
+    "customization",
+    "troubleshooting"
+  ]
+}

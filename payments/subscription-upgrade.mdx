@@ -1,0 +1,252 @@
+---
+title: Subscription Upgrade Design
+description: Design for upgrading an active Basic monthly subscription to Pro monthly.
+---
+
+## Goal
+
+When a user with an active `basic_monthly` subscription chooses `pro_monthly`, the system should update the existing Stripe subscription instead of creating a second subscription. The local billing, subscription, and credit records must remain consistent with Stripe.
+
+This design focuses on the first supported upgrade path:
+
+```text
+basic_monthly -> pro_monthly
+```
+
+The same flow can later support other upgrades, such as yearly tier upgrades, once the credit rules are defined.
+
+## Current State
+
+The repository already has the main entry points:
+
+- Pricing UI calls `POST /api/payments/stripe/checkout`.
+- `app/api/payments/stripe/checkout/route.ts` checks for an active subscription.
+- If the active plan differs from the requested plan, it calls `updateSubscriptionPlan(...)`.
+- `extensions/payment/stripe/index.ts` updates the existing Stripe subscription item.
+- Stripe webhooks are handled by `extensions/payment/stripe/webhook-service.ts`.
+- Payment, subscription, user plan, credit ledger, and credit buckets are written in `extensions/payment/stripe/webhook-accounting.ts`.
+
+The risk is credit accounting. A Stripe subscription update can create a prorated upgrade invoice. If the webhook treats that invoice as a normal `pro_monthly` cycle, it can grant the full 5,000 Pro credits even though the user already received the 1,000 Basic credits for the current period.
+
+## Product Rule
+
+For `basic_monthly -> pro_monthly`:
+
+- Keep the same Stripe subscription.
+- Keep the current billing period anchor.
+- Charge the prorated price difference immediately.
+- Grant only the current-period credit difference immediately:
+
+```text
+pro_monthly credits - basic_monthly credits = 5,000 - 1,000 = 4,000 credits
+```
+
+- On the next renewal invoice, grant the normal `pro_monthly` cycle amount: 5,000 credits.
+- Do not remove already granted Basic credits.
+- Do not create a second active subscription row.
+
+## Stripe Update Behavior
+
+Use Stripe Subscription Update on the existing subscription item:
+
+```ts
+await stripe.subscriptions.update(subscriptionId, {
+  items: [
+    {
+      id: subscriptionItemId,
+      price: subscriptionPlans.pro_monthly.stripePriceId,
+    },
+  ],
+  proration_behavior: "always_invoice",
+  billing_cycle_anchor: "unchanged",
+  metadata: {
+    userId,
+    key: "pro_monthly",
+    kind: "subscription",
+  },
+});
+```
+
+Do not include `payment_method_types`. Stripe should use the dashboard payment method configuration.
+
+Use an idempotency key when making the update:
+
+```text
+subscription-upgrade:{userId}:{subscriptionId}:basic_monthly:pro_monthly
+```
+
+The existing `STRIPE_SIMULATE="true"` branch should continue to return the success URL without calling Stripe.
+
+## Pending Upgrade Record
+
+Add a small local table to make webhook accounting deterministic:
+
+```text
+subscription_plan_change
+```
+
+Suggested fields:
+
+| Field | Purpose |
+| ----- | ------- |
+| `id` | Internal UUID. |
+| `provider` | `stripe`. |
+| `providerSubId` | Stripe subscription id. |
+| `userId` | Local Firebase uid. |
+| `fromPlanKey` | `basic_monthly`. |
+| `toPlanKey` | `pro_monthly`. |
+| `status` | `pending`, `applied`, `failed`, `canceled`. |
+| `creditDelta` | `4000`. |
+| `requestedAt` | Time the user requested the upgrade. |
+| `appliedPaymentId` | Stripe invoice payment id after success. |
+| `raw` | Optional provider payload snapshot. |
+| `createdAt` / `updatedAt` | Audit timestamps. |
+
+Create this record in the same server path that calls `updateSubscriptionPlan(...)`, before calling Stripe. If the Stripe API call fails, mark the record `failed`.
+
+This table prevents a prorated upgrade invoice from being mistaken for a full monthly renewal.
+
+## API Flow
+
+1. User clicks the `pro_monthly` pricing CTA.
+2. Client calls:
+
+```http
+POST /api/payments/stripe/checkout
+```
+
+```json
+{
+  "kind": "subscription",
+  "key": "pro_monthly"
+}
+```
+
+3. Route loads the latest active subscription for the user.
+4. If there is no active subscription, use the existing Checkout flow.
+5. If the active subscription is already `pro_monthly`, return the success URL.
+6. If the active subscription is `basic_monthly`, validate that this is an allowed upgrade.
+7. Insert `subscription_plan_change` with `creditDelta = 4000`.
+8. Update the Stripe subscription item to the Pro monthly price.
+9. Return the success URL.
+
+Expected response:
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "url": "https://your-app.example/credits?success=1"
+  }
+}
+```
+
+## Webhook Flow
+
+### `customer.subscription.updated`
+
+Use this event to mark the subscription as active on the new plan:
+
+- Update `subscription.planKey` to `pro_monthly`.
+- Update `subscription.currentPeriodEnd`.
+- Update `user.planKey` to `pro_monthly`.
+- Do not grant credits from this event.
+
+### `invoice.paid`
+
+For each paid invoice:
+
+1. Extract `subscriptionId`, `paymentId`, `userId`, and target plan metadata.
+2. Check if there is a `pending` `subscription_plan_change` for the same `providerSubId`, `userId`, and `toPlanKey`.
+3. If found:
+   - Insert a `payment` row for the prorated invoice.
+   - Upsert the existing `subscription` row as `pro_monthly`.
+   - Grant `creditDelta` credits using the existing subscription credit ledger path.
+   - Mark the change as `applied`.
+   - Store `appliedPaymentId`.
+4. If no pending change exists:
+   - Process the invoice as a normal subscription renewal.
+   - Grant the full cycle amount from `constants/billing.ts`.
+
+All local writes should happen in one database transaction.
+
+## Credit Accounting
+
+For the upgrade invoice:
+
+| Record | Value |
+| ------ | ----- |
+| `payment.type` | `subscription` |
+| `payment.planKey` | `pro_monthly` |
+| `payment.creditsGranted` | `4000` |
+| `credit_ledger.reason` | `subscription_cycle` |
+| `credit_balance_bucket.sourceType` | `subscription` |
+| `credit_balance_bucket.expiresAt` | Current subscription period end |
+| `user.credits` | Incremented by `4000` |
+
+For the next renewal invoice:
+
+| Record | Value |
+| ------ | ----- |
+| `payment.planKey` | `pro_monthly` |
+| `payment.creditsGranted` | `5000` |
+| `credit_ledger.reason` | `subscription_cycle` |
+
+This keeps `user.credits`, `credit_ledger`, `payment`, and `subscription` aligned.
+
+## UI Behavior
+
+The pricing page can keep using the same CTA endpoint. It should present states based on the current plan:
+
+| Current plan | Basic monthly button | Pro monthly button |
+| ------------ | -------------------- | ------------------ |
+| Free / no user | Buy / sign in | Buy / sign in |
+| `basic_monthly` | Current plan | Upgrade |
+| `pro_monthly` | Disabled lower tier | Current plan |
+
+For the first implementation, downgrade and cross-cycle changes should remain disabled or unsupported unless explicit product rules are added.
+
+## Validation Rules
+
+The backend should reject unsupported changes:
+
+- No active subscription and requested key is valid: use Checkout.
+- Active `basic_monthly` and requested `pro_monthly`: upgrade.
+- Active plan equals requested plan: return success URL.
+- Active `pro_monthly` and requested `basic_monthly`: reject or direct to a future downgrade flow.
+- Monthly to yearly or yearly to monthly: reject until rules are defined.
+- Unknown plan key: return `ApiCode.INVALID_SUBSCRIPTION_KEY`.
+
+Add an explicit helper such as:
+
+```ts
+isSupportedSubscriptionUpgrade(fromPlanKey, toPlanKey)
+```
+
+## Failure Handling
+
+- If Stripe update fails, mark the pending change as `failed` and do not change local `user.planKey`.
+- If `invoice.paid` is duplicated, the existing `payment.providerPaymentId` idempotency check must prevent duplicate credit grants.
+- If `customer.subscription.updated` arrives before `invoice.paid`, update the visible plan but do not grant credits until the paid invoice arrives.
+- If payment fails, do not grant credits. Keep the pending change `pending` until a successful invoice arrives or a cleanup job marks it `failed`.
+
+## Tests
+
+Add focused tests for:
+
+- Checkout route creates a pending upgrade record for `basic_monthly -> pro_monthly`.
+- Checkout route rejects `pro_monthly -> basic_monthly`.
+- Stripe update uses the existing subscription item, Pro price id, `always_invoice`, and unchanged billing anchor.
+- `customer.subscription.updated` updates plan state without granting credits.
+- `invoice.paid` with a pending upgrade grants exactly `4000` credits.
+- Duplicate `invoice.paid` does not grant duplicate credits.
+- Normal Pro renewal after the upgrade grants `5000` credits.
+
+Run:
+
+```bash
+pnpm test tests/app/api/payments/stripe/checkout/route.test.ts tests/extensions/payment/stripe/webhook-service.test.ts tests/extensions/payment/stripe/webhook-accounting.test.ts
+pnpm lint
+```
+
+Run `pnpm db:generate` after adding the new table.

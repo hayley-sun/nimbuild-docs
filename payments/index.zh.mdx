@@ -1,0 +1,46 @@
+---
+title: 支付系统概览
+description: 使用 Stripe 的订阅计费。
+---
+
+## 概述
+
+NimBuild Starter 使用 [Stripe](https://stripe.com) 处理周期性订阅计费。
+
+## 订阅计划
+
+在 `constants/billing.ts` 中配置：
+
+starter 默认提供四个订阅计划。正式收款前，请把 Stripe Price ID 替换成你自己 Stripe 账号中的 Price ID。
+
+| 计划       | 价格 | 积分                       |
+| ---------- | ---- | -------------------------- |
+| Basic 月付 | $19  | 每月 1,000 积分            |
+| Basic 年付 | $190 | 每年 12,000 积分，按月发放 |
+| Pro 月付   | $49  | 每月 5,000 积分            |
+| Pro 年付   | $490 | 每年 60,000 积分，按月发放 |
+
+## 支付流程
+
+1. **用户点击购买** → 前端调用 `/api/payments/stripe/checkout`
+2. **创建 Checkout Session** → Stripe API 返回支付链接
+3. **用户完成支付** → Stripe 发送 webhook 到 `/api/payments/stripe/webhook`
+4. **Webhook 处理**：
+   - 通过 `stripe.webhooks.constructEvent` 进行 Stripe 签名验证
+   - 幂等性检查（防止重复处理）
+   - 插入支付记录
+   - 创建/更新订阅记录
+   - 发放积分
+   - 发送确认邮件
+
+## 年付订阅分期发放
+
+年付计划不会一次性发放所有积分，而是按月分期：
+
+- 购买年付计划 → 立即发放第一个月积分
+- 剩余 11 个月 → 计划存储在 `subscriptionCreditSchedule` / `subscription_credit_schedule`
+- 定时任务（`/api/cron/subscription-grants`）每小时运行，处理到期的积分发放
+
+## 测试
+
+在 `.env` 中设置 `STRIPE_SIMULATE="true"` 可跳过真实支付，方便开发测试。

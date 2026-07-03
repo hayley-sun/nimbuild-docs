@@ -1,0 +1,77 @@
+---
+title: Credit System
+description: How the credit-based billing system works.
+---
+
+## Architecture
+
+The credit system uses a **dual-write pattern** for balance tracking:
+
+- `user.credits` — Fast-access current balance
+- `creditBalanceBucket` / `credit_balance_bucket` — Spendable credit buckets with source, remaining amount, priority, and optional expiry
+- `creditLedger` / `credit_ledger` — Immutable audit trail of all credit changes
+
+These records are updated in one database transaction whenever credits are granted, deducted, refunded, or expired. Deductions consume non-expired buckets first by expiry date, then write matching negative ledger entries.
+
+## Core API
+
+Credit balance and ledger mutations live in `modules/credits/ledger.ts` and are exported from `modules/credits`:
+
+```typescript
+const credits = await getUserCredits(userId);
+const canAfford = await canUserAfford(userId, creditsNeeded);
+
+await deductCredits(userId, creditsNeeded, 'credit_adjustment', referenceId);
+await refundCredits(userId, creditsNeeded, 'credit_adjustment_refund', referenceId);
+```
+
+## Credit Sources
+
+| Source | Trigger | Amount |
+|--------|---------|--------|
+| Registration bonus | New Firebase user sync | 2,000 credits |
+| Daily login grant | First successful login each Asia/Shanghai day | 200 credits, expires at the next Asia/Shanghai midnight |
+| Subscription | Webhook / cron | Per plan config |
+| Admin adjustment | Manual via admin panel | Custom |
+
+## Expiring Credits
+
+Expiring grants, such as daily login credits, are stored in `creditBalanceBucket.expiresAt` / `credit_balance_bucket.expires_at`. The `/api/cron/credit-expiry` route processes expired buckets, subtracts the remaining amount from `user.credits`, and writes `credit_expired` ledger entries.
+
+Run this route on a regular cron schedule with the same `CRON_SECRET` or basic auth credentials used by subscription grants.
+
+## Ledger Reasons
+
+Each `creditLedger` / `credit_ledger` entry has a `reason` field. Common reasons include:
+
+- `registration_bonus` — Free credits on first Firebase user sync
+- `daily_grant` — Daily login credits that expire at the next Asia/Shanghai midnight
+- `subscription_cycle` — Subscription grant
+- `subscription_schedule` — Scheduled subscription installment
+- `adjustment` — Manual admin adjustment
+- `refund` — Generic refund
+- `credit_expired` — Remaining credits expired from a bucket
+- `ai_generation` / `ai_generation_refund` — AI tool spend and provider-failure refund
+
+Use explicit reason names when adding product-specific credit consumption so admin and customer histories remain auditable.
+
+## Credit Compensation
+
+For operations that deduct credits before doing external work, use `createCreditCompensation(...)` so credits can be refunded if the external work fails.
+
+```typescript
+const compensation = createCreditCompensation({
+  userId,
+  amount: creditsNeeded,
+  reason: 'credit_adjustment_refund',
+  referenceId,
+});
+
+try {
+  await doExternalWork();
+  compensation.settle();
+} catch (error) {
+  await compensation.compensate();
+  throw error;
+}
+```

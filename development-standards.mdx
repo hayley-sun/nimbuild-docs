@@ -1,0 +1,117 @@
+---
+title: Development Standards
+description: Module boundaries, API authorization, and server/client rules for extending the starter.
+---
+
+This starter is meant to be extended as a product base. New code should keep framework routes thin, business logic testable, and third-party providers replaceable.
+
+## Choose the Owning Layer
+
+Use the smallest layer that owns the behavior:
+
+| Layer | Put code here when... |
+| ----- | --------------------- |
+| `app/[locale]/*` | It composes a page, layout, route group, or metadata entry. |
+| `app/api/**/route.ts` | It parses a request and returns an API response. |
+| `features/<feature>/components` | It is feature-owned UI. |
+| `features/<feature>/pages` | It composes a feature page used by App Router pages. |
+| `features/<feature>/actions` | A Client Component needs to call a Server Action. |
+| `features/<feature>/server` | It is feature-owned backend query, mutation, or workflow logic. |
+| `features/<feature>/support` | It is feature-owned shared helper code that is safe for frontend and backend. |
+| `modules/*` | It is reusable domain logic that should not depend on app routes, features, or UI components. |
+| `extensions/*` | It adapts a third-party SDK or provider to a module-facing interface. |
+| `lib/client-api/*` | Browser-only API hooks and client framework glue. |
+| `components/*` | It is app-wide reusable UI. |
+
+Do not put provider SDK details in API routes. API routes should call modules or feature server functions.
+
+## Import Boundaries
+
+The main boundaries are enforced in `eslint.config.mjs`.
+
+- Client/UI files must not import DB clients, provider admin SDKs, payment/email/storage adapters, or `features/*/server`.
+- Backend files must not import React UI components or browser-only helpers such as `modules/auth/client`.
+- `modules/*` and `extensions/*` must not depend on `app/*`, `features/*`, or `components/*`.
+- If a new exception is truly needed, add it explicitly to `eslint.config.mjs` and update `tests/config/eslint-boundaries.test.ts`.
+
+## API Route Standard
+
+Most JSON API routes should use `defineApiHandler(...)` from `modules/auth/api-handler.ts`:
+
+```typescript
+export const POST = defineApiHandler({ auth: "admin" }, async (req, { user }) => {
+  // Parse request data, call feature/server or module code, then return apiSuccess/apiCodeError.
+});
+```
+
+Every route under `app/api/**/route.ts` must be declared in `modules/auth/api-policy.ts` with one of these auth modes:
+
+| Mode | Meaning |
+| ---- | ------- |
+| `public` | No session required. |
+| `user` | Requires an authenticated, non-banned user. |
+| `admin` | Requires an authenticated admin user. |
+| `cron-secret` | Requires cron shared-secret validation. |
+| `stripe-webhook` | Uses Stripe signature verification and custom webhook responses. |
+
+Routes may skip `defineApiHandler(...)` only when they require custom protocol behavior, such as Stripe webhook status/body handling, redirects, HTML responses, or public status probes. They still need an explicit policy entry.
+
+HTTP status strategy:
+
+- unauthenticated user/admin routes return `401`;
+- authenticated non-admin users on admin routes return `403`;
+- expected business errors usually return HTTP `200` with a non-OK `ApiCode`;
+- unexpected system exceptions return HTTP `500` with `ApiCode.INTERNAL_ERROR`.
+
+Module and feature server functions should return stable `ApiCode` values for failure cases. User-facing messages are assembled by the API/client layer with `getApiMessage(...)`.
+
+## Server Action Standard
+
+Server Actions that need auth should use `defineServerAction(...)` from `modules/auth/action-handler.ts`:
+
+```typescript
+export const updateThing = defineServerAction("admin", async ({ user }, id: string) => {
+  // user is the resolved access user.
+});
+```
+
+Do not hand-roll `isAdmin()` or `getActiveSessionUser()` checks inside individual Server Actions. Keep the action as orchestration code: authorize, call a feature server/module function, translate `ApiCode` failures to messages, and revalidate paths when needed.
+
+## Auth Provider Boundary
+
+Authentication provider details are hidden behind `modules/auth/provider.ts`.
+
+- Firebase server code belongs under `extensions/auth/firebase/*`.
+- API routes, feature server modules, and app layouts should use `modules/auth` exports instead of importing Firebase Admin directly.
+- Browser sign-in code may use `modules/auth/client.ts`, which wraps the browser Firebase adapter.
+- If a future provider such as Better Auth replaces Firebase, keep API route signatures stable and swap the provider adapter behind `modules/auth/provider.ts`.
+
+`getActiveSessionUser()` uses `modules/auth/access-cache.ts` for local user access fields. The default store is a short-TTL in-process memory store. Code should depend on the store interface so Redis or Vercel Runtime Cache can replace it later.
+
+Admin mutations that change access-related user fields must invalidate that cache after a successful write:
+
+- role changes;
+- ban or unban changes;
+- user deletion;
+- plan marker changes if the value is used by access-sensitive UI or API behavior.
+
+Use `invalidateAuthAccessCache(userId)` from `modules/auth/session.ts` for targeted invalidation.
+
+## Client API Helpers
+
+`modules/client-api/*` is for shared DTOs, API envelopes, result types, and `ApiCode` definitions. Browser hooks that depend on React, `next-intl`, or UI toast components belong in `lib/client-api/*`.
+
+Use `useApiFetch()` from `lib/client-api/use-api-fetch.ts` in Client Components so locale headers and standard error toasts are applied consistently.
+
+## Testing Rules
+
+Add focused tests with the code you change:
+
+- API auth policy coverage: `tests/app/api-auth-policy.test.ts`.
+- API handler behavior: `tests/modules/auth/api-handler.test.ts`.
+- Auth/session behavior: `tests/modules/auth/*`.
+- Import boundaries: `tests/config/eslint-boundaries.test.ts`.
+- Feature server logic: `tests/features/<feature>/server/*`.
+- Module logic: `tests/modules/<module>/*`.
+
+Run `pnpm lint` after route, UI, config, or docs-navigation changes. Run the focused `pnpm test ...` command for the area you touched.

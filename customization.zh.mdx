@@ -1,0 +1,104 @@
+---
+title: 自定义指南
+description: 如何自定义定价、产品工作流、主题、语言和应用页面。
+---
+
+## 修改产品和价格
+
+编辑 `constants/billing.ts`。
+
+当前 starter 会从 `subscriptionTierConfigs` 生成四个订阅计划：Basic 月付、Basic 年付、Pro 月付和 Pro 年付。部署收款前，请把 Stripe Price ID 替换成你自己 Stripe Dashboard 中的 Price ID。
+
+```typescript
+const subscriptionTierConfigs = [
+  {
+    key: "basic",
+    plans: {
+      monthly: {
+        creditsPerCycle: 1000,
+        stripePriceId: "price_your_basic_monthly",
+      },
+      yearly: {
+        creditsPerCycle: 12000,
+        stripePriceId: "price_your_basic_yearly",
+        grantSchedule: {
+          mode: "installments",
+          grantsPerCycle: 12,
+          intervalMonths: 1,
+          creditsPerGrant: 1000,
+          initialGrants: 1,
+        },
+      },
+    },
+  },
+];
+```
+
+计划 key 会按 `${tierKey}_${billingCycle}` 派生。年付计划使用 `grantSchedule` 按月分期发放积分。
+
+## 添加产品专属工作流
+
+将产品专属工作流放在 `features/*` 下，并把服务端 provider 或计费逻辑保留在 `features/*/server`、`modules/*` 或 `extensions/*` 中。如果某个工作流需要先扣除积分再执行外部工作，请保留 `createCreditCompensation(...)` 失败退款模式。
+
+## 添加博客文章
+
+将博客源文件放在 `content/blog/<slug>/` 下。
+
+每篇文章应为每个支持的语言提供一个 MDX 文件，例如 `en.mdx` 和 `zh.mdx`，并导出 `blog` 元数据对象：
+
+```mdx
+export const blog = {
+  title: "文章标题",
+  description: "简短摘要",
+  author: {
+    name: "NimBuild",
+    src: "/logo.png",
+  },
+  date: "2026-05-26",
+};
+```
+
+新增、重命名或删除文章后，运行 `pnpm generate:blog-manifest`，让 `features/blog/blog-manifest.generated.ts` 与源文件保持一致。
+
+## 添加新语言
+
+1. 复制 `messages/en.json` 到 `messages/XX.json`
+2. 复制 `messages/seo.en.json` 到 `messages/seo.XX.json`
+3. 翻译两个文件
+4. 在 `i18n.config.ts` 中添加语言：
+
+```typescript
+export const locales = ["en", "zh", "XX"] as const;
+```
+
+5. 在 `content/docs` 中添加对应的 docs MDX 文件，例如 `quickstart.XX.mdx`
+6. 如果文档站也要暴露新语言，更新 `features/docs/localization.ts` 和 Fumadocs i18n 配置中的语言标签
+
+`proxy.ts` 和 `lib/i18n.ts` 都读取 `i18n.config.ts`，因此大多数语言路由会跟随这份共享配置。
+
+## 自定义主题
+
+颜色在 `app/globals.css` 中使用 CSS 自定义属性定义：
+
+```css
+:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  /* ... */
+}
+```
+
+深色模式变量在 `.dark` 类中。
+
+Fumadocs CSS 在 `app/[locale]/docs/layout.tsx` 中直接从 `fumadocs-ui/style.css` 导入，兼容当前项目的 Tailwind v4 配置。
+
+## 添加新的受保护页面
+
+1. 在 `app/[locale]/(protected)/your-page/page.tsx` 下创建页面
+2. 直接在该 `page.tsx` 中组合路由专属 UI，并按需使用 feature components
+3. 将服务端查询或变更放在对应的 `features/*/server` 模块中
+4. 在 `components/navigation/config.ts` 中添加导航 key
+5. 在 `messages/en.json` 和 `messages/zh.json` 中添加面向用户的文案
+
+受保护布局会调用 `modules/auth` 中的 `getActiveSessionUser()`，因此这个 route group 下的页面需要登录用户。

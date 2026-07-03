@@ -1,0 +1,127 @@
+---
+title: 环境变量
+description: 所有环境变量的完整参考。
+---
+
+## 必需变量
+
+### 数据库
+
+```ini
+DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+```
+
+### 认证
+
+```ini
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+### 应用 URL
+
+```ini
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+## 服务集成
+
+### Stripe（支付）
+
+Stripe 订阅 checkout 和 webhook 处理必需：
+
+```ini
+STRIPE_SECRET_KEY="your-stripe-api-key"
+STRIPE_WEBHOOK_SECRET="whsec_..."
+```
+
+测试模式（跳过真实支付）：
+
+```ini
+STRIPE_SIMULATE="true"
+```
+
+### Resend（邮件）
+
+购买确认邮件必需：
+
+```ini
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild <onboarding@resend.dev>"
+RESEND_REPLY_TO="support@example.com"
+```
+
+### 火山引擎（AI 工具）
+
+AI 工具中心和小红书文案生成必需：
+
+```ini
+VOLCENGINE_API_KEY="your-volcengine-api-key"
+VOLCENGINE_BASE_URL="https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+VOLCENGINE_MODEL="your-volcengine-model-id"
+```
+
+### 定时任务
+
+使用 bearer token 认证：
+
+```ini
+CRON_SECRET="your-cron-secret"
+```
+
+或使用 basic auth：
+
+```ini
+CRON_JOBS_USERNAME="your_username"
+CRON_JOBS_PASSWORD="your_password"
+```
+
+## 可选分析工具
+
+```ini
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID="G-..."
+NEXT_PUBLIC_ANALYTICS_ENABLE_IN_DEVELOPMENT="false"
+```
+
+## 可选 Cloudflare Turnstile
+
+登录/注册弹窗会用它在显示 Google 登录按钮前检查访客风险。配置以下两个值即可启用：
+
+```ini
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"
+```
+
+任一值缺失时，Turnstile 会关闭，Google 登录按钮会直接显示。
+
+## 可选存储（Cloudflare R2 或 S3 兼容存储）
+
+用户上传由 `/api/upload/file` 处理普通文件，由 `/api/upload/image` 处理仅图片上传。两个 route 都会调用 `extensions/storage` 中的存储门面，因此 feature 代码不依赖 Cloudflare R2、UCloud US3 或任何特定对象存储 SDK。缺少存储凭据时，starter 会返回 data URL fallback，方便本地测试。
+
+Cloudflare R2 示例：
+
+```ini
+STORAGE_PROVIDER="r2"
+R2_ACCOUNT_ID="your-account-id"
+R2_BUCKET_NAME="your-bucket"
+R2_ACCESS_KEY_ID="your-access-key"
+R2_SECRET_ACCESS_KEY="your-secret-key"
+R2_PUBLIC_URL="https://your-storage-domain.example.com"
+```
+
+通用 S3 兼容存储，包括 UCloud US3：
+
+```ini
+STORAGE_PROVIDER="s3-compatible"
+STORAGE_ENDPOINT="https://s3-cn-bj.ufileos.com"
+STORAGE_BUCKET_NAME="your-bucket"
+STORAGE_REGION="cn-bj"
+STORAGE_ACCESS_KEY_ID="your-access-key"
+STORAGE_SECRET_ACCESS_KEY="your-secret-key"
+STORAGE_PUBLIC_URL="https://your-storage-domain.example.com"
+```

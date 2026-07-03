@@ -1,0 +1,50 @@
+---
+title: Email System
+description: Transactional emails via Resend.
+---
+
+## Overview
+
+NimBuild Starter uses Resend for transactional emails. Application code imports the provider-hidden facade from `extensions/email`, while the Resend-specific adapter stays inside `extensions/email/providers/resend.ts`.
+
+## Email Types
+
+| Email                 | Trigger         | Implementation                  |
+| --------------------- | --------------- | ------------------------------- |
+| Purchase Confirmation | Payment webhook | `extensions/email/templates.ts` |
+
+## Configuration
+
+```ini
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild <onboarding@resend.dev>"
+RESEND_REPLY_TO="support@example.com"
+```
+
+### Development Mode
+
+For local testing without a verified sending domain, use Resend's `onboarding@resend.dev` sender and send only to the email address registered on your Resend account. Sending to other recipients requires a verified domain.
+
+### Production
+
+For production, verify your sending domain in Resend and set `RESEND_FROM_EMAIL` to an address on that domain, such as `NimBuild <noreply@mail.example.com>`.
+
+## Email Bodies
+
+Generic transactional emails are sent through `sendEmail()` from `extensions/email`.
+
+## Error Handling
+
+All email sends are wrapped in try-catch. Failed sends are logged but don't crash the application. The system returns a success/error tuple instead of throwing:
+
+```typescript
+const result = await sendEmail({
+  to: email,
+  subject: "Subject",
+  html: "<p>Hello</p>",
+});
+
+if (!result.success) {
+  console.error(result.error);
+}
+```

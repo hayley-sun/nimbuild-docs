@@ -1,0 +1,252 @@
+---
+title: 订阅升级设计
+description: basic_monthly 会员升级到 pro_monthly 会员的功能设计。
+---
+
+## 目标
+
+当用户已经购买 `basic_monthly`，再选择 `pro_monthly` 时，系统应该升级同一个 Stripe 订阅，而不是创建第二个订阅。本地的支付、订阅、用户计划和积分账本必须和 Stripe 保持一致。
+
+第一期只支持这一条升级路径：
+
+```text
+basic_monthly -> pro_monthly
+```
+
+后续如果要支持年付升级、降级或月付年付互转，需要先补充对应的产品和积分规则。
+
+## 当前状态
+
+仓库里已经有主要入口：
+
+- 价格页调用 `POST /api/payments/stripe/checkout`。
+- `app/api/payments/stripe/checkout/route.ts` 会查询用户当前 active 订阅。
+- 如果当前订阅和目标计划不同，会调用 `updateSubscriptionPlan(...)`。
+- `extensions/payment/stripe/index.ts` 会更新现有 Stripe subscription item。
+- Stripe webhook 由 `extensions/payment/stripe/webhook-service.ts` 处理。
+- `extensions/payment/stripe/webhook-accounting.ts` 负责写入 `payment`、`subscription`、`user.planKey`、积分账本和积分 bucket。
+
+主要风险在积分入账。Stripe 订阅升级可能生成一张按比例补差价的发票。如果 webhook 把这张发票当作普通 `pro_monthly` 周期处理，就会发放完整 5,000 Pro 积分，而用户本周期已经拿过 1,000 Basic 积分。
+
+## 产品规则
+
+对于 `basic_monthly -> pro_monthly`：
+
+- 沿用同一个 Stripe subscription。
+- 保持当前账期锚点不变。
+- 立即收取按比例计算的升级差价。
+- 立即发放当前周期的积分差额：
+
+```text
+pro_monthly 积分 - basic_monthly 积分 = 5,000 - 1,000 = 4,000 积分
+```
+
+- 下一次续费发票成功后，按 `pro_monthly` 正常发放 5,000 积分。
+- 不扣回已经发放的 Basic 积分。
+- 不创建第二条 active 订阅记录。
+
+## Stripe 更新行为
+
+使用 Stripe Subscription Update 更新现有 subscription item：
+
+```ts
+await stripe.subscriptions.update(subscriptionId, {
+  items: [
+    {
+      id: subscriptionItemId,
+      price: subscriptionPlans.pro_monthly.stripePriceId,
+    },
+  ],
+  proration_behavior: "always_invoice",
+  billing_cycle_anchor: "unchanged",
+  metadata: {
+    userId,
+    key: "pro_monthly",
+    kind: "subscription",
+  },
+});
+```
+
+不要传 `payment_method_types`。支付方式由 Stripe Dashboard 的动态支付方式配置决定。
+
+调用 Stripe 更新接口时使用幂等键：
+
+```text
+subscription-upgrade:{userId}:{subscriptionId}:basic_monthly:pro_monthly
+```
+
+现有 `STRIPE_SIMULATE="true"` 分支继续直接返回成功 URL，不调用 Stripe。
+
+## 待处理升级记录
+
+建议新增一张小表，让 webhook 入账逻辑可判定当前发票是不是“升级差价发票”：
+
+```text
+subscription_plan_change
+```
+
+建议字段：
+
+| 字段 | 用途 |
+| ---- | ---- |
+| `id` | 内部 UUID。 |
+| `provider` | `stripe`。 |
+| `providerSubId` | Stripe subscription id。 |
+| `userId` | 本地 Firebase uid。 |
+| `fromPlanKey` | `basic_monthly`。 |
+| `toPlanKey` | `pro_monthly`。 |
+| `status` | `pending`、`applied`、`failed`、`canceled`。 |
+| `creditDelta` | `4000`。 |
+| `requestedAt` | 用户发起升级的时间。 |
+| `appliedPaymentId` | 成功入账后的 Stripe invoice payment id。 |
+| `raw` | 可选的 provider payload 快照。 |
+| `createdAt` / `updatedAt` | 审计时间。 |
+
+在调用 `updateSubscriptionPlan(...)` 的服务端路径里，先创建这条记录，再调用 Stripe。如果 Stripe API 调用失败，把记录标记为 `failed`。
+
+这张表可以避免把升级差价发票误判成完整月度续费发票。
+
+## API 流程
+
+1. 用户点击 `pro_monthly` 的价格 CTA。
+2. 客户端调用：
+
+```http
+POST /api/payments/stripe/checkout
+```
+
+```json
+{
+  "kind": "subscription",
+  "key": "pro_monthly"
+}
+```
+
+3. Route 查询该用户最新 active 订阅。
+4. 如果没有 active 订阅，走现有 Checkout 流程。
+5. 如果当前已经是 `pro_monthly`，直接返回成功 URL。
+6. 如果当前是 `basic_monthly`，校验这是受支持的升级。
+7. 写入 `subscription_plan_change`，其中 `creditDelta = 4000`。
+8. 更新 Stripe subscription item 到 Pro monthly price。
+9. 返回成功 URL。
+
+期望响应：
+
+```json
+{
+  "code": "OK",
+  "data": {
+    "url": "https://your-app.example/credits?success=1"
+  }
+}
+```
+
+## Webhook 流程
+
+### `customer.subscription.updated`
+
+这个事件只更新订阅状态，不发积分：
+
+- 更新 `subscription.planKey` 为 `pro_monthly`。
+- 更新 `subscription.currentPeriodEnd`。
+- 更新 `user.planKey` 为 `pro_monthly`。
+- 不在这个事件里发放积分。
+
+### `invoice.paid`
+
+每张已支付发票：
+
+1. 解析 `subscriptionId`、`paymentId`、`userId` 和目标计划 metadata。
+2. 查询是否存在同一个 `providerSubId`、`userId`、`toPlanKey` 的 `pending` 升级记录。
+3. 如果存在：
+   - 写入这张差价发票对应的 `payment` 记录。
+   - upsert 现有 `subscription` 为 `pro_monthly`。
+   - 通过现有订阅积分账本路径发放 `creditDelta` 积分。
+   - 把升级记录标记为 `applied`。
+   - 写入 `appliedPaymentId`。
+4. 如果不存在：
+   - 按普通订阅续费处理。
+   - 根据 `constants/billing.ts` 发放完整周期积分。
+
+所有本地写入应该放在一个数据库事务里完成。
+
+## 积分入账
+
+升级差价发票：
+
+| 记录 | 值 |
+| ---- | -- |
+| `payment.type` | `subscription` |
+| `payment.planKey` | `pro_monthly` |
+| `payment.creditsGranted` | `4000` |
+| `credit_ledger.reason` | `subscription_cycle` |
+| `credit_balance_bucket.sourceType` | `subscription` |
+| `credit_balance_bucket.expiresAt` | 当前订阅周期结束时间 |
+| `user.credits` | 增加 `4000` |
+
+下一次正常续费发票：
+
+| 记录 | 值 |
+| ---- | -- |
+| `payment.planKey` | `pro_monthly` |
+| `payment.creditsGranted` | `5000` |
+| `credit_ledger.reason` | `subscription_cycle` |
+
+这样可以保持 `user.credits`、`credit_ledger`、`payment` 和 `subscription` 一致。
+
+## UI 行为
+
+价格页可以继续调用同一个 CTA endpoint。按钮状态根据当前计划展示：
+
+| 当前计划 | Basic monthly 按钮 | Pro monthly 按钮 |
+| -------- | ------------------ | ---------------- |
+| Free / 未登录 | 购买 / 登录 | 购买 / 登录 |
+| `basic_monthly` | 当前计划 | 升级 |
+| `pro_monthly` | 禁用低等级计划 | 当前计划 |
+
+第一期不支持降级和跨周期切换，除非先补充明确的产品规则。
+
+## 校验规则
+
+后端应该拒绝不支持的计划变更：
+
+- 没有 active 订阅，目标 key 合法：走 Checkout。
+- active `basic_monthly`，目标 `pro_monthly`：升级。
+- active 计划等于目标计划：返回成功 URL。
+- active `pro_monthly`，目标 `basic_monthly`：拒绝，或引导到未来的降级流程。
+- 月付转年付、年付转月付：规则未定义前拒绝。
+- 未知计划 key：返回 `ApiCode.INVALID_SUBSCRIPTION_KEY`。
+
+建议新增显式 helper：
+
+```ts
+isSupportedSubscriptionUpgrade(fromPlanKey, toPlanKey)
+```
+
+## 失败处理
+
+- Stripe 更新失败时，把 pending change 标记为 `failed`，不要修改本地 `user.planKey`。
+- `invoice.paid` 重复投递时，现有 `payment.providerPaymentId` 幂等检查必须阻止重复发积分。
+- 如果 `customer.subscription.updated` 先于 `invoice.paid` 到达，可以先更新可见计划，但不能发积分，直到已支付发票到达。
+- 如果付款失败，不发积分。pending change 保持 `pending`，直到后续成功发票到达，或清理任务把它标记为 `failed`。
+
+## 测试
+
+需要增加聚焦测试：
+
+- Checkout route 为 `basic_monthly -> pro_monthly` 创建 pending upgrade 记录。
+- Checkout route 拒绝 `pro_monthly -> basic_monthly`。
+- Stripe update 使用现有 subscription item、Pro price id、`always_invoice` 和 unchanged billing anchor。
+- `customer.subscription.updated` 只更新计划状态，不发积分。
+- 带 pending upgrade 的 `invoice.paid` 只发放 `4000` 积分。
+- 重复 `invoice.paid` 不重复发积分。
+- 升级后的下一次 Pro 正常续费发放 `5000` 积分。
+
+运行：
+
+```bash
+pnpm test tests/app/api/payments/stripe/checkout/route.test.ts tests/extensions/payment/stripe/webhook-service.test.ts tests/extensions/payment/stripe/webhook-accounting.test.ts
+pnpm lint
+```
+
+新增表后运行 `pnpm db:generate`。

@@ -1,0 +1,50 @@
+---
+title: 邮件系统
+description: 基于 Resend 的交易邮件。
+---
+
+## 概述
+
+NimBuild Starter 使用 Resend 发送交易邮件。业务代码只从 `extensions/email` 导入隐藏 provider 的统一封装，Resend 具体适配器位于 `extensions/email/providers/resend.ts`。
+
+## 邮件类型
+
+| 邮件     | 触发条件     | 实现方式                        |
+| -------- | ------------ | ------------------------------- |
+| 购买确认 | 支付 webhook | `extensions/email/templates.ts` |
+
+## 配置
+
+```ini
+RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild <onboarding@resend.dev>"
+RESEND_REPLY_TO="support@example.com"
+```
+
+### 开发模式
+
+未验证发送域名时，可以使用 Resend 的 `onboarding@resend.dev` 发件人做本地测试，但只能发送到 Resend 账号注册邮箱。发送到其他收件人需要先验证域名。
+
+### 生产环境
+
+生产环境需要在 Resend 中验证发送域名，并将 `RESEND_FROM_EMAIL` 设置为该域名下的地址，例如 `NimBuild <noreply@mail.example.com>`。
+
+## 邮件内容
+
+通用交易邮件通过 `extensions/email` 导出的 `sendEmail()` 发送。
+
+## 错误处理
+
+所有邮件发送都包裹在 try-catch 中。发送失败会记录日志但不会导致应用崩溃。系统返回成功/错误元组而非抛出异常：
+
+```typescript
+const result = await sendEmail({
+  to: email,
+  subject: "Subject",
+  html: "<p>Hello</p>",
+});
+
+if (!result.success) {
+  console.error(result.error);
+}
+```

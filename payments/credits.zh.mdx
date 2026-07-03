@@ -1,0 +1,77 @@
+---
+title: 积分系统
+description: 基于积分的计费系统工作原理。
+---
+
+## 架构
+
+积分系统使用**双写模式**进行余额跟踪：
+
+- `user.credits` — 快速访问的当前余额
+- `creditBalanceBucket` / `credit_balance_bucket` — 可消费积分 bucket，包含来源、剩余数量、优先级和可选过期时间
+- `creditLedger` / `credit_ledger` — 不可变的积分变动审计记录
+
+每次赠送、扣除、退款或过期都会在同一个数据库事务中更新这些记录。扣除积分时会优先消费未过期且更早过期的 bucket，并写入对应的负数账本记录。
+
+## 核心 API
+
+积分余额和账本变更位于 `modules/credits/ledger.ts`，并从 `modules/credits` 导出：
+
+```typescript
+const credits = await getUserCredits(userId);
+const canAfford = await canUserAfford(userId, creditsNeeded);
+
+await deductCredits(userId, creditsNeeded, 'credit_adjustment', referenceId);
+await refundCredits(userId, creditsNeeded, 'credit_adjustment_refund', referenceId);
+```
+
+## 积分来源
+
+| 来源 | 触发条件 | 数量 |
+|------|---------|------|
+| 注册奖励 | 新 Firebase 用户同步 | 2,000 积分 |
+| 每日登录奖励 | 每个 Asia/Shanghai 自然日首次成功登录 | 200 积分，次日 00:00 失效 |
+| 订阅 | Webhook / 定时任务 | 按计划配置 |
+| 管理员调整 | 通过管理后台手动操作 | 自定义 |
+
+## 积分过期
+
+每日登录奖励这类会过期的积分会写入 `creditBalanceBucket.expiresAt` / `credit_balance_bucket.expires_at`。`/api/cron/credit-expiry` route 会处理已过期 bucket，从 `user.credits` 扣除剩余数量，并写入 `credit_expired` 账本记录。
+
+这个 route 应该用和订阅积分发放相同的 `CRON_SECRET` 或 basic auth 凭据定期调用。
+
+## 账本原因
+
+每条 `creditLedger` / `credit_ledger` 记录都有 `reason` 字段。常见原因包括：
+
+- `registration_bonus` — 首次 Firebase 用户同步赠送
+- `daily_grant` — 每日登录积分，次日 00:00 失效
+- `subscription_cycle` — 订阅发放
+- `subscription_schedule` — 订阅分期发放
+- `adjustment` — 管理员手动调整
+- `refund` — 通用退款
+- `credit_expired` — bucket 中剩余积分过期
+- `ai_generation` / `ai_generation_refund` — AI 工具消耗和 provider 失败退款
+
+添加产品特定的积分消耗时，请使用明确的 reason 名称，保证管理员和用户历史记录可审计。
+
+## 积分补偿
+
+如果某个操作需要先扣除积分、再执行外部工作，请使用 `createCreditCompensation(...)`，这样外部工作失败时可以自动退款。
+
+```typescript
+const compensation = createCreditCompensation({
+  userId,
+  amount: creditsNeeded,
+  reason: 'credit_adjustment_refund',
+  referenceId,
+});
+
+try {
+  await doExternalWork();
+  compensation.settle();
+} catch (error) {
+  await compensation.compensate();
+  throw error;
+}
+```

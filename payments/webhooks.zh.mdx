@@ -1,0 +1,59 @@
+---
+title: Webhooks
+description: Stripe Webhook 处理机制。
+---
+
+## 端点
+
+```
+POST /api/payments/stripe/webhook
+```
+
+## 安全机制
+
+### 签名验证
+
+每个 webhook 使用 Stripe 官方 webhook helper 验证：
+
+```typescript
+const event = constructStripeWebhookEvent(rawBody, signature);
+```
+
+签名在 `stripe-signature` 请求头中。`constructStripeWebhookEvent()` 封装了 `stripe.webhooks.constructEvent(...)`，并使用 `STRIPE_WEBHOOK_SECRET`。
+
+### 幂等性
+
+通过检查 `payment` 表中的 `providerPaymentId` 处理重复 webhook。如果已存在相同 ID 的支付记录，webhook 被确认但不会重复处理。
+
+## 支持的事件
+
+| 事件 | 操作 |
+|------|------|
+| `checkout.session.completed` | 创建支付记录、发放积分、发送邮件 |
+| `invoice.paid` | 处理订阅续费支付 |
+| `customer.subscription.created` | 在适用时标记订阅为 active |
+| `customer.subscription.updated` | 在适用时标记订阅为 active |
+| `customer.subscription.deleted` | 标记订阅为 canceled |
+
+## 设置
+
+在 Stripe Dashboard 中设置 webhook URL：
+
+```
+https://your-domain.com/api/payments/stripe/webhook
+```
+
+在 `.env` 中配置 webhook 密钥：
+
+```ini
+STRIPE_WEBHOOK_SECRET="whsec_your_secret"
+```
+
+## 调试
+
+如果 webhook 没有触发：
+
+1. 检查 Stripe Dashboard 的 webhook 投递日志
+2. 验证 `STRIPE_WEBHOOK_SECRET` 与 Stripe 设置匹配
+3. 确保端点可公开访问（不在认证保护下）
+4. 检查服务器日志中的签名验证错误

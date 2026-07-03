@@ -1,0 +1,55 @@
+---
+title: 认证系统概览
+description: Firebase Google 登录和服务端会话模型。
+---
+
+## 概述
+
+NimBuild Starter 使用 Firebase Auth 进行 Google 登录，并使用 HttpOnly 服务端 session cookie 做服务端鉴权。Firebase 专属服务端代码隐藏在 auth provider adapter 后面，因此 API route 不直接依赖 Firebase Admin。邮箱密码登录、邮箱验证、忘记密码和重置密码流程已经移除。
+
+### 支持的认证方式
+
+- **Firebase Google 登录** — 当前唯一面向用户的登录方式。
+
+### 登录流程
+
+1. 用户打开全局登录弹窗。
+2. 如果配置了 Cloudflare Turnstile，弹窗会先渲染 Turnstile 检查，再显示 Google 按钮。低风险访客会自动通过；较高风险访客需要先完成可见的人工确认控件。
+3. Turnstile 通过后，弹窗显示 Google 登录按钮。
+4. Firebase client SDK 返回 ID token。
+5. 浏览器将 ID token 提交到 `/api/auth/session-login`。
+6. 服务端通过 `modules/auth/provider.ts` 校验 token 并创建 server session cookie。
+7. `modules/auth/user-sync.ts` 将 Firebase 用户同步到本地 `user` 表。
+
+### 配置
+
+Firebase 客户端和服务端适配器位于 `extensions/auth/firebase`：
+
+```typescript
+// 浏览器 SDK
+getFirebaseClientAuth();
+getGoogleAuthProvider();
+
+// 服务端 provider adapter
+firebaseAuthProvider;
+```
+
+浏览器使用 `NEXT_PUBLIC_FIREBASE_*` 配置。服务端 session 校验在 Firebase extension 内部使用 `FIREBASE_PROJECT_ID`、`FIREBASE_CLIENT_EMAIL` 和 `FIREBASE_PRIVATE_KEY`。应用侧服务端代码应调用 `modules/auth` 或 `modules/auth/provider.ts`，不要直接导入 Firebase Admin。
+
+Cloudflare Turnstile 是可选配置。设置了 `NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY` 和 `CLOUDFLARE_TURNSTILE_SECRET_KEY` 后，`features/auth/components/turnstile-gate.tsx` 会在 Google 按钮前增加门控，`/api/auth/turnstile` 会调用 Cloudflare Siteverify 校验 token。任一值缺失时会关闭该门控，方便本地开发继续登录。
+
+### 会话管理
+
+- 会话是 HttpOnly provider-backed session cookie，不再使用数据库 session 表。
+- 本地用户、角色、积分、封禁状态和套餐信息保存在 `user` 表。
+- 登录创建 session 时会同步本地用户。请求期鉴权会校验 session cookie、解析本地用户并检查封禁状态。
+- 受保护路由和 API 使用 `modules/auth` 中的 `getActiveSessionUser()`。
+- `getActiveSessionUser()` 会短 TTL 缓存本地访问字段。admin mutation 成功修改 role、封禁状态、删除用户或访问敏感 plan marker 后，必须调用 `invalidateAuthAccessCache(userId)`。
+
+### 路由保护
+
+| 路由分组      | 保护方式                           |
+| ------------- | ---------------------------------- |
+| `(protected)` | 需要登录 — 重定向到 `/?auth=login` |
+| `(admin)`     | 需要 `role='admin'`                |
+| `(marketing)` | 公开                               |

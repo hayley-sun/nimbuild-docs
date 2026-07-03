@@ -1,0 +1,106 @@
+---
+title: 快速开始
+description: 几分钟内启动你的 NimBuild Starter 项目。
+---
+
+## 前提条件
+
+### 1. Node.js
+
+Node.js 用于运行 Next.js 开发服务器、本地构建脚本和项目工具链。
+
+```bash
+# 检查是否已安装 Node.js
+node --version
+```
+
+### 2. pnpm
+
+项目使用 `pnpm` 作为包管理器，当前仓库锁定的是 `pnpm 10`。
+
+```bash
+# 安装 pnpm
+npm install -g pnpm
+
+# 检查 pnpm 版本
+pnpm --version
+```
+
+### 3. PostgreSQL 连接信息
+
+PostgreSQL 数据库
+
+## 安装步骤
+
+### 1. 获取项目代码
+
+```bash
+git clone clone git@github.com:hayley-sun/nimbuild-to-production.git
+cd nimbuild-to-production
+```
+
+### 2. 安装依赖
+
+```bash
+pnpm install
+```
+
+### 3. 配置环境变量
+
+把示例环境文件复制成本地环境文件：
+
+```bash
+cp .env.example .env.local
+```
+
+然后编辑 `.env.local`，填入你的配置。
+
+最少需要以下配置：
+
+```ini
+DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+完整列表请查看[环境变量](./environment)。
+
+### 4. 初始化数据库
+
+```bash
+pnpm db:push
+```
+
+生产环境建议使用迁移：
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+```
+
+### 5. 启动开发服务器
+
+```bash
+pnpm dev
+```
+
+访问 `http://localhost:3000`，先用你要设为管理员的 Google 账号登录。
+
+### 6. 将账号提升为管理员
+
+```bash
+ADMIN_EMAIL=admin@example.com pnpm admin:setup
+```
+
+## 下一步
+
+- [项目结构](./project-structure) — 了解代码布局
+- [认证系统](./auth) — 配置 Firebase Google 登录
+- [支付系统](./payments) — 设置计费和订阅
+- [自定义指南](./customization) — 添加产品专属工作流

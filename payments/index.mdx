@@ -1,0 +1,46 @@
+---
+title: Payments Overview
+description: Subscription billing with Stripe.
+---
+
+## Overview
+
+NimBuild Starter uses [Stripe](https://stripe.com) for recurring subscription billing.
+
+## Subscription Plans
+
+Configured in `constants/billing.ts`:
+
+The starter includes four subscription plans. Replace the Stripe Price IDs with IDs from your own Stripe account before accepting real payments.
+
+| Plan          | Price | Credits                                  |
+| ------------- | ----- | ---------------------------------------- |
+| Basic Monthly | $19   | 1,000 credits per month                  |
+| Basic Yearly  | $190  | 12,000 credits per year, granted monthly |
+| Pro Monthly   | $49   | 5,000 credits per month                  |
+| Pro Yearly    | $490  | 60,000 credits per year, granted monthly |
+
+## Payment Flow
+
+1. **User clicks buy** → Frontend calls `/api/payments/stripe/checkout`
+2. **Checkout session created** → Stripe API returns a payment URL
+3. **User completes payment** → Stripe sends webhook to `/api/payments/stripe/webhook`
+4. **Webhook processing**:
+   - Stripe signature verification via `stripe.webhooks.constructEvent`
+   - Idempotency check (prevents duplicate processing)
+   - Payment record inserted
+   - Subscription record created/updated
+   - Credits granted to user
+   - Confirmation email sent
+
+## Annual Subscription Installments
+
+Annual plans don't grant all credits at once. Instead, credits are distributed monthly:
+
+- Year plan purchased → first month's credits granted immediately
+- Remaining 11 months → credits scheduled in `subscriptionCreditSchedule` / `subscription_credit_schedule`
+- Cron job (`/api/cron/subscription-grants`) runs hourly to process scheduled grants
+
+## Testing
+
+Set `STRIPE_SIMULATE="true"` in `.env` to bypass real payment processing during development.
