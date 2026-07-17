@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Webhooks | NimBuild Docs</title>
+    <meta name="description" content="Stripe Webhook 处理机制。">
+    <link rel="stylesheet" href="../../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">中文</a>
+        <a href="../../payments/webhooks.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="../">简介</a>
+<a class="nav-link" href="../quickstart.html">快速开始</a>
+<a class="nav-link" href="../project-structure.html">项目结构</a>
+<a class="nav-link" href="../development-standards.html">开发规范</a>
+<a class="nav-link" href="../environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="../auth/">认证系统概览</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" open>
+    <summary>支付</summary>
+    <a class="nav-link" href="./">支付系统概览</a>
+<a class="nav-link" href="credits.html">积分系统</a>
+<a class="nav-link active" href="webhooks.html">Webhooks</a>
+<a class="nav-link" href="subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="../email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="../admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="../deployment.html">部署指南</a>
+<a class="nav-link" href="../customization.html">自定义指南</a>
+<a class="nav-link" href="../troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">模块</p>
+            <h1>Webhooks</h1>
+            <p>Stripe Webhook 处理机制。</p>
+          </header>
+          <h2>端点</h2>
+<pre><code>POST /api/payments/stripe/webhook</code></pre>
+<h2>安全机制</h2>
+<h3>签名验证</h3>
+<p>每个 webhook 使用 Stripe 官方 webhook helper 验证：</p>
+<pre><code class="language-typescript">const event = constructStripeWebhookEvent(rawBody, signature);</code></pre>
+<p>签名在 <code>stripe-signature</code> 请求头中。<code>constructStripeWebhookEvent()</code> 封装了 <code>stripe.webhooks.constructEvent(...)</code>，并使用 <code>STRIPE_WEBHOOK_SECRET</code>。</p>
+<h3>幂等性</h3>
+<p>通过检查 <code>payment</code> 表中的 <code>providerPaymentId</code> 处理重复 webhook。如果已存在相同 ID 的支付记录，webhook 被确认但不会重复处理。</p>
+<h2>支持的事件</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>事件</th><th>操作</th></tr></thead>
+    <tbody><tr><td><code>checkout.session.completed</code></td><td>创建支付记录、发放积分、发送邮件</td></tr><tr><td><code>invoice.paid</code></td><td>处理订阅续费支付</td></tr><tr><td><code>customer.subscription.created</code></td><td>在适用时标记订阅为 active</td></tr><tr><td><code>customer.subscription.updated</code></td><td>在适用时标记订阅为 active</td></tr><tr><td><code>customer.subscription.deleted</code></td><td>标记订阅为 canceled</td></tr></tbody>
+  </table></div>
+<h2>设置</h2>
+<p>在 Stripe Dashboard 中设置 webhook URL：</p>
+<pre><code>https://your-domain.com/api/payments/stripe/webhook</code></pre>
+<p>在 <code>.env</code> 中配置 webhook 密钥：</p>
+<pre><code class="language-ini">STRIPE_WEBHOOK_SECRET="whsec_your_secret"</code></pre>
+<h2>调试</h2>
+<p>如果 webhook 没有触发：</p>
+<ol><li>检查 Stripe Dashboard 的 webhook 投递日志</li><li>验证 <code>STRIPE_WEBHOOK_SECRET</code> 与 Stripe 设置匹配</li><li>确保端点可公开访问（不在认证保护下）</li><li>检查服务器日志中的签名验证错误</li></ol>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

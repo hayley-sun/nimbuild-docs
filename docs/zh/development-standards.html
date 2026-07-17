@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>开发规范 | NimBuild Docs</title>
+    <meta name="description" content="扩展 starter 时需要遵守的模块边界、API 鉴权和前后端规则。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../development-standards.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link" href="quickstart.html">快速开始</a>
+<a class="nav-link" href="project-structure.html">项目结构</a>
+<a class="nav-link active" href="development-standards.html">开发规范</a>
+<a class="nav-link" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="deployment.html">部署指南</a>
+<a class="nav-link" href="customization.html">自定义指南</a>
+<a class="nav-link" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">文档</p>
+            <h1>开发规范</h1>
+            <p>扩展 starter 时需要遵守的模块边界、API 鉴权和前后端规则。</p>
+          </header>
+          <p>这个 starter 的定位是产品基座。新增代码应保持框架路由轻量、业务逻辑可测试，并让第三方提供商可以替换。</p>
+<h2>选择所属层</h2>
+<p>先判断行为属于哪一层：</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>层级</th><th>适合放在这里的代码</th></tr></thead>
+    <tbody><tr><td><code>app/[locale]/*</code></td><td>页面、layout、route group 或 metadata 组合。</td></tr><tr><td><code>app/api/**/route.ts</code></td><td>解析请求并返回 API 响应。</td></tr><tr><td><code>features/&lt;feature&gt;/components</code></td><td>某个功能自己的 UI。</td></tr><tr><td><code>features/&lt;feature&gt;/pages</code></td><td>被 App Router 页面使用的功能页组合。</td></tr><tr><td><code>features/&lt;feature&gt;/actions</code></td><td>Client Component 需要调用的 Server Action。</td></tr><tr><td><code>features/&lt;feature&gt;/server</code></td><td>某个功能自己的后端查询、变更或工作流。</td></tr><tr><td><code>features/&lt;feature&gt;/support</code></td><td>某个功能自己的共享辅助代码，并且同时适合前端和后端使用。</td></tr><tr><td><code>modules/*</code></td><td>可复用领域逻辑，不应依赖 app 路由、features 或 UI 组件。</td></tr><tr><td><code>extensions/*</code></td><td>第三方 SDK 或 provider 到模块接口的适配层。</td></tr><tr><td><code>lib/client-api/*</code></td><td>浏览器专用 API hooks 和客户端框架胶水。</td></tr><tr><td><code>components/*</code></td><td>全局复用 UI。</td></tr></tbody>
+  </table></div>
+<p>不要把 provider SDK 细节放进 API route。API route 应调用 modules 或 feature server 函数。</p>
+<h2>导入边界</h2>
+<p>主要边界由 <code>eslint.config.mjs</code> 强制执行。</p>
+<ul><li>Client/UI 文件不应导入 DB client、provider admin SDK、支付/邮件/存储适配器，或 <code>features/*/server</code>。</li><li>后端文件不应导入 React UI 组件，或 <code>modules/auth/client</code> 这类浏览器专用 helper。</li><li><code>modules/*</code> 和 <code>extensions/*</code> 不应依赖 <code>app/*</code>、<code>features/*</code> 或 <code>components/*</code>。</li><li>如果确实需要新增例外，必须在 <code>eslint.config.mjs</code> 中显式声明，并更新 <code>tests/config/eslint-boundaries.test.ts</code>。</li></ul>
+<h2>API Route 规范</h2>
+<p>大多数 JSON API route 应使用 <code>modules/auth/api-handler.ts</code> 中的 <code>defineApiHandler(...)</code>：</p>
+<pre><code class="language-typescript">export const POST = defineApiHandler({ auth: "admin" }, async (req, { user }) =&gt; {
+  // 解析请求数据，调用 feature/server 或 module 代码，然后返回 apiSuccess/apiCodeError。
+});</code></pre>
+<p>每个 <code>app/api/**/route.ts</code> 都必须在 <code>modules/auth/api-policy.ts</code> 中声明鉴权模式：</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>模式</th><th>含义</th></tr></thead>
+    <tbody><tr><td><code>public</code></td><td>不需要 session。</td></tr><tr><td><code>user</code></td><td>需要已登录且未被封禁的用户。</td></tr><tr><td><code>admin</code></td><td>需要已登录管理员。</td></tr><tr><td><code>cron-secret</code></td><td>使用 cron shared secret 校验。</td></tr><tr><td><code>stripe-webhook</code></td><td>使用 Stripe 签名校验和自定义 webhook 响应。</td></tr></tbody>
+  </table></div>
+<p>只有在需要自定义协议行为时，route 才可以不使用 <code>defineApiHandler(...)</code>，例如 Stripe webhook 状态码/响应体、redirect、HTML 响应或公开状态探针。但这些 route 仍然需要显式 policy。</p>
+<p>HTTP status 策略：</p>
+<ul><li>未登录访问 user/admin route 返回 <code>401</code>；</li><li>已登录但不是 admin 访问 admin route 返回 <code>403</code>；</li><li>可预期的业务错误通常返回 HTTP <code>200</code>，并在 envelope 中返回非 OK <code>ApiCode</code>；</li><li>非预期系统异常返回 HTTP <code>500</code> 和 <code>ApiCode.INTERNAL_ERROR</code>。</li></ul>
+<p>module 和 feature server 函数应为失败情况返回稳定的 <code>ApiCode</code>。用户可见文案由 API/client 层通过 <code>getApiMessage(...)</code> 组装。</p>
+<h2>Server Action 规范</h2>
+<p>需要鉴权的 Server Action 应使用 <code>modules/auth/action-handler.ts</code> 中的 <code>defineServerAction(...)</code>：</p>
+<pre><code class="language-typescript">export const updateThing = defineServerAction("admin", async ({ user }, id: string) =&gt; {
+  // user 是已解析的 access user。
+});</code></pre>
+<p>不要在单个 Server Action 内手写 <code>isAdmin()</code> 或 <code>getActiveSessionUser()</code> 检查。Action 应只做编排：鉴权、调用 feature server/module 函数、把 <code>ApiCode</code> 失败转换成文案，并在需要时 revalidate path。</p>
+<h2>Auth Provider 边界</h2>
+<p>认证提供商细节隐藏在 <code>modules/auth/provider.ts</code> 后面。</p>
+<ul><li>Firebase 服务端代码属于 <code>extensions/auth/firebase/*</code>。</li><li>API route、feature server module 和 app layout 应使用 <code>modules/auth</code> 导出，不要直接导入 Firebase Admin。</li><li>浏览器登录代码可以使用 <code>modules/auth/client.ts</code>，它包装了浏览器侧 Firebase adapter。</li><li>如果未来把 Firebase 替换成 Better Auth 等 provider，应保持 API route 签名稳定，只替换 <code>modules/auth/provider.ts</code> 背后的 adapter。</li></ul>
+<p><code>getActiveSessionUser()</code> 通过 <code>modules/auth/access-cache.ts</code> 缓存本地用户访问字段。默认 store 是短 TTL 进程内内存缓存。代码应依赖 store 接口，这样后续可以替换成 Redis 或 Vercel Runtime Cache。</p>
+<p>admin mutation 成功修改访问相关字段后，必须清理该用户缓存：</p>
+<ul><li>role 变更；</li><li>ban 或 unban；</li><li>删除用户；</li><li>plan marker 变更，如果该值被访问敏感 UI 或 API 行为使用。</li></ul>
+<p>使用 <code>modules/auth/session.ts</code> 中的 <code>invalidateAuthAccessCache(userId)</code> 做定向失效。</p>
+<h2>Client API Helpers</h2>
+<p><code>modules/client-api/*</code> 只放共享 DTO、API envelope、result types 和 <code>ApiCode</code> 定义。依赖 React、<code>next-intl</code> 或 UI toast 组件的浏览器 hooks 应放在 <code>lib/client-api/*</code>。</p>
+<p>Client Components 中使用 <code>lib/client-api/use-api-fetch.ts</code> 导出的 <code>useApiFetch()</code>，以统一附加 locale header 和标准错误 toast。</p>
+<h2>测试规则</h2>
+<p>变更代码时同步补充聚焦测试：</p>
+<ul><li>API 鉴权策略覆盖：<code>tests/app/api-auth-policy.test.ts</code>。</li><li>API handler 行为：<code>tests/modules/auth/api-handler.test.ts</code>。</li><li>Auth/session 行为：<code>tests/modules/auth/*</code>。</li><li>导入边界：<code>tests/config/eslint-boundaries.test.ts</code>。</li><li>Feature server 逻辑：<code>tests/features/&lt;feature&gt;/server/*</code>。</li><li>Module 逻辑：<code>tests/modules/&lt;module&gt;/*</code>。</li></ul>
+<p>修改 route、UI、配置或 docs 导航后运行 <code>pnpm lint</code>。修改对应业务区域后运行聚焦的 <code>pnpm test ...</code> 命令。</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

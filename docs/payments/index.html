@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payments Overview | NimBuild Docs</title>
+    <meta name="description" content="Subscription billing with Stripe.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/payments/">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="../auth/">Authentication Overview</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" open>
+    <summary>Payments</summary>
+    <a class="nav-link active" href="./">Payments Overview</a>
+<a class="nav-link" href="credits.html">Credit System</a>
+<a class="nav-link" href="webhooks.html">Webhooks</a>
+<a class="nav-link" href="subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Payments Overview</h1>
+            <p>Subscription billing with Stripe.</p>
+          </header>
+          <h2>Overview</h2>
+<p>NimBuild Starter uses <a href="https://stripe.com">Stripe</a> for recurring subscription billing.</p>
+<h2>Subscription Plans</h2>
+<p>Configured in <code>constants/billing.ts</code>:</p>
+<p>The starter includes four subscription plans. Replace the Stripe Price IDs with IDs from your own Stripe account before accepting real payments.</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Plan</th><th>Price</th><th>Credits</th></tr></thead>
+    <tbody><tr><td>Basic Monthly</td><td>$19</td><td>1,000 credits per month</td></tr><tr><td>Basic Yearly</td><td>$190</td><td>12,000 credits per year, granted monthly</td></tr><tr><td>Pro Monthly</td><td>$49</td><td>5,000 credits per month</td></tr><tr><td>Pro Yearly</td><td>$490</td><td>60,000 credits per year, granted monthly</td></tr></tbody>
+  </table></div>
+<h2>Payment Flow</h2>
+<ol><li><strong>User clicks buy</strong> → Frontend calls <code>/api/payments/stripe/checkout</code></li><li><strong>Checkout session created</strong> → Stripe API returns a payment URL</li><li><strong>User completes payment</strong> → Stripe sends webhook to <code>/api/payments/stripe/webhook</code></li><li><strong>Webhook processing</strong>:</li></ol>
+<ul><li>Stripe signature verification via <code>stripe.webhooks.constructEvent</code></li><li>Idempotency check (prevents duplicate processing)</li><li>Payment record inserted</li><li>Subscription record created/updated</li><li>Credits granted to user</li><li>Confirmation email sent</li></ul>
+<h2>Annual Subscription Installments</h2>
+<p>Annual plans don't grant all credits at once. Instead, credits are distributed monthly:</p>
+<ul><li>Year plan purchased → first month's credits granted immediately</li><li>Remaining 11 months → credits scheduled in <code>subscriptionCreditSchedule</code> / <code>subscription_credit_schedule</code></li><li>Cron job (<code>/api/cron/subscription-grants</code>) runs hourly to process scheduled grants</li></ul>
+<h2>Testing</h2>
+<p>Set <code>STRIPE_SIMULATE="true"</code> in <code>.env</code> to bypass real payment processing during development.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

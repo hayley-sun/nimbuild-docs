@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Firebase Google 登录 | NimBuild Docs</title>
+    <meta name="description" content="配置 Firebase Google 登录提供商。">
+    <link rel="stylesheet" href="../../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">中文</a>
+        <a href="../../auth/providers.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="../">简介</a>
+<a class="nav-link" href="../quickstart.html">快速开始</a>
+<a class="nav-link" href="../project-structure.html">项目结构</a>
+<a class="nav-link" href="../development-standards.html">开发规范</a>
+<a class="nav-link" href="../environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" open>
+    <summary>认证</summary>
+    <a class="nav-link" href="./">认证系统概览</a>
+<a class="nav-link active" href="providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="../payments/">支付系统概览</a>
+<a class="nav-link" href="../payments/credits.html">积分系统</a>
+<a class="nav-link" href="../payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="../payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="../email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="../admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="../deployment.html">部署指南</a>
+<a class="nav-link" href="../customization.html">自定义指南</a>
+<a class="nav-link" href="../troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">模块</p>
+            <h1>Firebase Google 登录</h1>
+            <p>配置 Firebase Google 登录提供商。</p>
+          </header>
+          <h2>概述</h2>
+<p>当前 starter 将认证边界收窄为一种方式：用户通过 Firebase Auth 使用 Google 登录。不再维护密码数据库、重置 token 表、邮箱验证路由或 Better Auth adapter。</p>
+<h2>Firebase 设置</h2>
+<ol><li>创建或打开 Firebase 项目。</li><li>启用 <strong>Authentication → Sign-in method → Google</strong>。</li><li>将本地和生产域名加入 Firebase authorized domains。</li><li>创建 Web App，并复制公开客户端配置。</li><li>创建 Firebase Admin service account key。</li></ol>
+<h2>环境变量</h2>
+<pre><code class="language-ini">NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"</code></pre>
+<h2>可选 Cloudflare Turnstile 门控</h2>
+<p>可以在 Google 登录按钮前启用 Turnstile。登录弹窗会先渲染 Cloudflare 验证，在验证过程中隐藏 Google 按钮，并且只有 <code>/api/auth/turnstile</code> 接受 Turnstile token 后才显示 Google 按钮。</p>
+<pre><code class="language-ini">NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"</code></pre>
+<p>这些 key 需要在 Cloudflare Turnstile 中创建，并把所有会展示登录弹窗的域名加入允许列表；如果要在本地或预览环境测试，也需要加入对应域名。任一值缺失时，starter 会关闭 Turnstile 门控。</p>
+<h2>本地用户同步</h2>
+<p>Firebase 是身份提供商，PostgreSQL 仍然是产品数据库。创建服务端 session 时，<code>modules/auth/user-sync.ts</code> 会使用 Firebase UID 作为 <code>user.id</code> 写入或更新本地 <code>user</code> 记录。</p>
+<p>本地用户记录负责保存产品字段，例如 <code>credits</code>、<code>role</code>、<code>planKey</code> 和封禁状态。</p>
+<h2>后续扩展认证</h2>
+<p>提供商专属代码放在 <code>extensions/auth/*</code>。应用侧 session、管理员鉴权和用户同步逻辑保留在 <code>modules/auth</code>，这样未来增加其他 provider 时不需要改受保护路由和 API。</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Credit System | NimBuild Docs</title>
+    <meta name="description" content="How the credit-based billing system works.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/payments/credits.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="../auth/">Authentication Overview</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" open>
+    <summary>Payments</summary>
+    <a class="nav-link" href="./">Payments Overview</a>
+<a class="nav-link active" href="credits.html">Credit System</a>
+<a class="nav-link" href="webhooks.html">Webhooks</a>
+<a class="nav-link" href="subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Credit System</h1>
+            <p>How the credit-based billing system works.</p>
+          </header>
+          <h2>Architecture</h2>
+<p>The credit system uses a <strong>dual-write pattern</strong> for balance tracking:</p>
+<ul><li><code>user.credits</code> — Fast-access current balance</li><li><code>creditBalanceBucket</code> / <code>credit_balance_bucket</code> — Spendable credit buckets with source, remaining amount, priority, and optional expiry</li><li><code>creditLedger</code> / <code>credit_ledger</code> — Immutable audit trail of all credit changes</li></ul>
+<p>These records are updated in one database transaction whenever credits are granted, deducted, refunded, or expired. Deductions consume non-expired buckets first by expiry date, then write matching negative ledger entries.</p>
+<h2>Core API</h2>
+<p>Credit balance and ledger mutations live in <code>modules/credits/ledger.ts</code> and are exported from <code>modules/credits</code>:</p>
+<pre><code class="language-typescript">const credits = await getUserCredits(userId);
+const canAfford = await canUserAfford(userId, creditsNeeded);
+
+await deductCredits(userId, creditsNeeded, 'credit_adjustment', referenceId);
+await refundCredits(userId, creditsNeeded, 'credit_adjustment_refund', referenceId);</code></pre>
+<h2>Credit Sources</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>Source</th><th>Trigger</th><th>Amount</th></tr></thead>
+    <tbody><tr><td>Registration bonus</td><td>New Firebase user sync</td><td>2,000 credits</td></tr><tr><td>Daily login grant</td><td>First successful login each Asia/Shanghai day</td><td>200 credits, expires at the next Asia/Shanghai midnight</td></tr><tr><td>Subscription</td><td>Webhook / cron</td><td>Per plan config</td></tr><tr><td>Admin adjustment</td><td>Manual via admin panel</td><td>Custom</td></tr></tbody>
+  </table></div>
+<h2>Expiring Credits</h2>
+<p>Expiring grants, such as daily login credits, are stored in <code>creditBalanceBucket.expiresAt</code> / <code>credit_balance_bucket.expires_at</code>. The <code>/api/cron/credit-expiry</code> route processes expired buckets, subtracts the remaining amount from <code>user.credits</code>, and writes <code>credit_expired</code> ledger entries.</p>
+<p>Run this route on a regular cron schedule with the same <code>CRON_SECRET</code> or basic auth credentials used by subscription grants.</p>
+<h2>Ledger Reasons</h2>
+<p>Each <code>creditLedger</code> / <code>credit_ledger</code> entry has a <code>reason</code> field. Common reasons include:</p>
+<ul><li><code>registration_bonus</code> — Free credits on first Firebase user sync</li><li><code>daily_grant</code> — Daily login credits that expire at the next Asia/Shanghai midnight</li><li><code>subscription_cycle</code> — Subscription grant</li><li><code>subscription_schedule</code> — Scheduled subscription installment</li><li><code>adjustment</code> — Manual admin adjustment</li><li><code>refund</code> — Generic refund</li><li><code>credit_expired</code> — Remaining credits expired from a bucket</li><li><code>ai_generation</code> / <code>ai_generation_refund</code> — AI tool spend and provider-failure refund</li></ul>
+<p>Use explicit reason names when adding product-specific credit consumption so admin and customer histories remain auditable.</p>
+<h2>Credit Compensation</h2>
+<p>For operations that deduct credits before doing external work, use <code>createCreditCompensation(...)</code> so credits can be refunded if the external work fails.</p>
+<pre><code class="language-typescript">const compensation = createCreditCompensation({
+  userId,
+  amount: creditsNeeded,
+  reason: 'credit_adjustment_refund',
+  referenceId,
+});
+
+try {
+  await doExternalWork();
+  compensation.settle();
+} catch (error) {
+  await compensation.compensate();
+  throw error;
+}</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

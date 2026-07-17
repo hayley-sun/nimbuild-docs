@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Dashboard | NimBuild Docs</title>
+    <meta name="description" content="User management, credit adjustment, and subscription control.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/admin/">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="../auth/">Authentication Overview</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="../payments/">Payments Overview</a>
+<a class="nav-link" href="../payments/credits.html">Credit System</a>
+<a class="nav-link" href="../payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="../payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" open>
+    <summary>Admin</summary>
+    <a class="nav-link active" href="./">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Admin Dashboard</h1>
+            <p>User management, credit adjustment, and subscription control.</p>
+          </header>
+          <h2>Overview</h2>
+<p>The admin dashboard is available at <code>/admin</code> and requires <code>user.role = 'admin'</code>.</p>
+<h2>Setup</h2>
+<p>Create an admin account:</p>
+<pre><code class="language-bash">ADMIN_EMAIL=your@email.com pnpm admin:setup</code></pre>
+<p>Or manually set <code>role = 'admin'</code> in the database for an existing user.</p>
+<h2>Features</h2>
+<h3>User Management (<code>/admin/users</code>)</h3>
+<ul><li>Search users by name or email</li><li>Paginated user list (20 per page)</li><li>View: name, email, credits, role, ban status, plan</li></ul>
+<h3>User Actions</h3>
+<div class="table-wrap"><table>
+    <thead><tr><th>Action</th><th>Endpoint</th><th>Description</th></tr></thead>
+    <tbody><tr><td>Adjust credits</td><td><code>PUT /api/admin/users/[userId]/credits</code></td><td>Add or remove credits</td></tr><tr><td>Change subscription</td><td><code>PUT /api/admin/users/[userId]/subscription</code></td><td>Update user's plan</td></tr><tr><td>Ban user</td><td>Via admin panel</td><td>Temporary or permanent ban</td></tr></tbody>
+  </table></div>
+<h3>Subscription Management (<code>/admin/subscriptions</code>)</h3>
+<ul><li>View all active subscriptions</li><li>Filter by plan and status</li></ul>
+<h3>Credit Ledger (<code>/admin/credits</code>)</h3>
+<ul><li>View all credit transactions across users</li><li>Filter by reason, date range</li></ul>
+<h2>Authorization</h2>
+<p>Admin pages are protected by the admin route group layout in <code>app/[locale]/(admin)/layout.tsx</code>, which calls <code>requireAdmin()</code> from <code>modules/auth</code>:</p>
+<pre><code class="language-typescript">// Checks user.role === "admin"
+// Redirects non-admins away from the admin area</code></pre>
+<p>Admin API routes also call <code>requireAdmin()</code> from <code>modules/auth</code>. The underlying implementation lives in <code>modules/auth/admin.ts</code>.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

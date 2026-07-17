@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project Structure | NimBuild Docs</title>
+    <meta name="description" content="Overview of the codebase layout and key directories.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">English</a>
+        <a href="zh/project-structure.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="./">Introduction</a>
+<a class="nav-link" href="quickstart.html">Quickstart</a>
+<a class="nav-link active" href="project-structure.html">Project Structure</a>
+<a class="nav-link" href="development-standards.html">Development Standards</a>
+<a class="nav-link" href="environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="auth/">Authentication Overview</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="payments/">Payments Overview</a>
+<a class="nav-link" href="payments/credits.html">Credit System</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="deployment.html">Deployment</a>
+<a class="nav-link" href="customization.html">Customization</a>
+<a class="nav-link" href="troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Documentation</p>
+            <h1>Project Structure</h1>
+            <p>Overview of the codebase layout and key directories.</p>
+          </header>
+          <h2>Directory Overview</h2>
+<pre><code>├── app/[locale]/              # Next.js App Router routes with next-intl locale segment
+│   ├── (marketing)/           # Home, pricing, blog, and legal pages
+│   ├── (protected)/           # Authenticated app pages: settings and credits
+│   ├── (admin)/admin/         # Admin dashboard, users, subscriptions, and credit ledger
+│   ├── (tools)/tools/         # Authenticated AI tool workspace pages
+│   └── docs/                  # Fumadocs documentation routes
+├── app/api/                   # Route handlers
+│   ├── auth/                  # Firebase session endpoints
+│   ├── payments/stripe/        # Stripe checkout, webhook, and redirect fallback
+│   ├── upload/                # User upload endpoints
+│   ├── admin/                 # Admin mutation APIs
+│   ├── user/                  # User profile, credits, and admin-status APIs
+│   └── cron/                  # Scheduled subscription grants and credit expiry
+├── features/                  # Product feature modules
+│   ├── admin/                 # Admin UI, actions, server queries, and mutations
+│   ├── auth/                  # Global sign-in modal, auth UI, and Firebase session helpers
+│   ├── ai-tools/              # AI tool actions, UI, history, and server workflows
+│   ├── blog/                  # Blog source loader and blog-owned components
+│   ├── docs/                  # Fumadocs source, metadata, i18n, and layout helpers
+│   ├── landing/               # Marketing page sections
+│   └── user-console/          # Settings and credits pages, profile API support, and queries
+├── modules/                   # Reusable domain modules
+│   ├── analytics/             # Analytics component composition entry
+│   ├── ai-tools/              # Shared AI tool schemas and typed payloads
+│   ├── auth/                  # Firebase session, user sync, and admin authorization helpers
+│   ├── billing/               # Billing display and subscription credit schedule helpers
+│   ├── client-api/            # DTOs shared with browser clients
+│   ├── credits/               # Credit ledger mutations and refund compensation
+│   ├── upload/                # User file and image upload server logic
+│   └── db/                    # Drizzle client and schema
+├── extensions/                # Third-party adapters
+│   ├── analytics/google/      # Google Analytics component
+│   ├── ai/volcengine/         # Volcengine OpenAI-compatible AI provider adapter
+│   ├── auth/firebase/         # Firebase client and admin SDK adapters
+│   ├── email/                 # Provider-hidden email facade, templates, and adapters
+│   ├── payment/stripe/         # Stripe checkout and webhook accounting
+│   └── storage/               # Provider-hidden storage facade with R2 and S3-compatible adapters
+├── components/                # App-wide UI: brand, layout, shared content helpers, and primitives
+├── constants/                 # Billing and website configuration
+├── content/blog/              # Blog source content (MDX)
+├── content/docs/              # Documentation source content (MDX)
+├── messages/                  # UI and SEO translations (en, zh)
+├── public/                    # Public images, logos, robots.txt, and generated docs CSS
+├── scripts/                   # Local maintenance and generation scripts
+└── drizzle/                   # Drizzle migration files</code></pre>
+<h2>Route Groups</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>Group</th><th>Path</th><th>Access</th><th>Purpose</th></tr></thead>
+    <tbody><tr><td><code>(marketing)</code></td><td><code>/</code>, <code>/pricing</code>, <code>/blog</code>, legal pages</td><td>Public</td><td>Marketing and SEO pages</td></tr><tr><td><code>(protected)</code></td><td><code>/credits</code>, <code>/settings</code></td><td>Auth required</td><td>User console</td></tr><tr><td><code>(tools)</code></td><td><code>/tools</code>, <code>/tools/xiaohongshu</code></td><td>Auth required</td><td>AI tool workspace</td></tr><tr><td><code>(admin)</code></td><td><code>/admin</code>, <code>/admin/users</code>, <code>/admin/subscriptions</code>, <code>/admin/credits</code></td><td>Admin role</td><td>Management panel</td></tr><tr><td><code>docs</code></td><td><code>/docs/*</code>, <code>/zh/docs/*</code></td><td>Public</td><td>Documentation</td></tr></tbody>
+  </table></div>
+<h2>Boundary Rules</h2>
+<ul><li>App routes stay thin: parse params or request bodies, then call feature/server or module code.</li><li>Client Components can import feature actions, feature UI, shared components, shared types, and client-safe helpers.</li><li>Client Components should not import <code>features/*/server</code>, <code>modules/db</code>, <code>modules/credits</code>, provider adapters, payment adapters, email adapters, or storage adapters.</li><li>Backend modules should not import React components.</li><li>API routes should use <code>defineApiHandler(...)</code> and must be declared in <code>modules/auth/api-policy.ts</code>, unless they deliberately need custom protocol handling.</li><li>These boundaries are enforced by <code>eslint.config.mjs</code>; see <a href="development-standards.html">Development Standards</a> before adding a new module or exception.</li></ul>
+<h2>Key Files</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+    <tbody><tr><td><code>extensions/auth/firebase/client.ts</code></td><td>Browser-side Firebase client initialization</td></tr><tr><td><code>extensions/auth/firebase/admin.ts</code></td><td>Low-level Firebase Admin initialization used by the Firebase provider adapter</td></tr><tr><td><code>extensions/auth/firebase/provider.ts</code></td><td>Firebase implementation of the auth provider interface</td></tr><tr><td><code>modules/auth/client.ts</code></td><td>Browser-side Firebase Google sign-in/session helpers</td></tr><tr><td><code>modules/auth/action-handler.ts</code></td><td>Standard Server Action wrapper for user/admin authorization</td></tr><tr><td><code>modules/auth/access-cache.ts</code></td><td>Replaceable cache store for local auth access fields</td></tr><tr><td><code>modules/auth/provider.ts</code></td><td>App-facing auth provider interface and active provider binding</td></tr><tr><td><code>modules/auth/api-handler.ts</code></td><td>Standard API route wrapper for auth, locale, and error responses</td></tr><tr><td><code>modules/auth/api-policy.ts</code></td><td>Explicit auth policy list for every <code>app/api</code> route</td></tr><tr><td><code>modules/auth/session.ts</code></td><td>Session cookie resolution, local access cache, and cache invalidation</td></tr><tr><td><code>modules/auth/user-sync.ts</code></td><td>Provider identity to local user synchronization</td></tr><tr><td><code>modules/auth/index.ts</code></td><td>Server-facing auth/session/admin exports</td></tr><tr><td><code>modules/db/schema.ts</code></td><td>Drizzle schema source of truth</td></tr><tr><td><code>modules/ai-tools/xiaohongshu.ts</code></td><td>Shared Xiaohongshu copywriter input/output schemas</td></tr><tr><td><code>modules/credits/ledger.ts</code></td><td>Credit balance and ledger mutations</td></tr><tr><td><code>modules/credits/compensation.ts</code></td><td>Refund-on-failure compensation helper</td></tr><tr><td><code>modules/upload/file.ts</code></td><td>User file and image upload validation and storage write</td></tr><tr><td><code>constants/billing.ts</code></td><td>Subscription plan keys, prices, credits, and Stripe Price IDs</td></tr><tr><td><code>extensions/analytics/google/</code></td><td>Google Analytics integration</td></tr><tr><td><code>extensions/ai/volcengine/</code></td><td>Volcengine provider adapter for AI tool generation</td></tr><tr><td><code>extensions/payment/stripe/</code></td><td>Stripe checkout, signature verification, webhook service, and accounting</td></tr><tr><td><code>extensions/storage/</code></td><td>Provider-hidden storage facade with Cloudflare R2 and S3-compatible adapters</td></tr><tr><td><code>features/auth/components/auth-modal-provider.tsx</code></td><td>Global Google sign-in modal and <code>?auth=login</code> handling</td></tr><tr><td><code>lib/client-api/use-api-fetch.ts</code></td><td>Browser API fetch hook with locale header and standard error toast</td></tr><tr><td><code>features/blog/source.ts</code></td><td>Blog manifest loader for <code>content/blog</code> MDX posts</td></tr><tr><td><code>features/blog/components/</code></td><td>Blog card and blog layout components</td></tr><tr><td><code>features/docs/source.ts</code></td><td>Fumadocs loader for generated <code>.source/server</code> output</td></tr><tr><td><code>source.config.ts</code></td><td>Fumadocs MDX source configuration</td></tr><tr><td><code>proxy.ts</code></td><td>Next.js proxy for locale routing</td></tr><tr><td><code>i18n.config.ts</code></td><td>Locale configuration</td></tr></tbody>
+  </table></div>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

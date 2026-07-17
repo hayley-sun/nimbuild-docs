@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Webhooks | NimBuild Docs</title>
+    <meta name="description" content="How Stripe webhooks are processed.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/payments/webhooks.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="../auth/">Authentication Overview</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" open>
+    <summary>Payments</summary>
+    <a class="nav-link" href="./">Payments Overview</a>
+<a class="nav-link" href="credits.html">Credit System</a>
+<a class="nav-link active" href="webhooks.html">Webhooks</a>
+<a class="nav-link" href="subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Webhooks</h1>
+            <p>How Stripe webhooks are processed.</p>
+          </header>
+          <h2>Endpoint</h2>
+<pre><code>POST /api/payments/stripe/webhook</code></pre>
+<h2>Security</h2>
+<h3>Signature Verification</h3>
+<p>Every webhook is verified with Stripe's official webhook helper:</p>
+<pre><code class="language-typescript">const event = constructStripeWebhookEvent(rawBody, signature);</code></pre>
+<p>The signature is in the <code>stripe-signature</code> header. <code>constructStripeWebhookEvent()</code> wraps <code>stripe.webhooks.constructEvent(...)</code> and uses <code>STRIPE_WEBHOOK_SECRET</code>.</p>
+<h3>Idempotency</h3>
+<p>Duplicate webhooks are handled by checking <code>providerPaymentId</code> in the <code>payment</code> table. If a payment with the same ID already exists, the webhook is acknowledged without re-processing.</p>
+<h2>Supported Events</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>Event</th><th>Action</th></tr></thead>
+    <tbody><tr><td><code>checkout.session.completed</code></td><td>Create payment, grant credits, send email</td></tr><tr><td><code>invoice.paid</code></td><td>Process subscription renewal payment</td></tr><tr><td><code>customer.subscription.created</code></td><td>Mark subscription active when applicable</td></tr><tr><td><code>customer.subscription.updated</code></td><td>Mark subscription active when applicable</td></tr><tr><td><code>customer.subscription.deleted</code></td><td>Mark subscription canceled</td></tr></tbody>
+  </table></div>
+<h2>Setup</h2>
+<p>In your Stripe Dashboard, set the webhook URL to:</p>
+<pre><code>https://your-domain.com/api/payments/stripe/webhook</code></pre>
+<p>And configure the webhook secret in <code>.env</code>:</p>
+<pre><code class="language-ini">STRIPE_WEBHOOK_SECRET="whsec_your_secret"</code></pre>
+<h2>Debugging</h2>
+<p>If webhooks aren't working:</p>
+<ol><li>Check Stripe Dashboard webhook logs for delivery status</li><li>Verify <code>STRIPE_WEBHOOK_SECRET</code> matches your Stripe settings</li><li>Ensure the endpoint is publicly accessible (not behind auth)</li><li>Check server logs for signature verification errors</li></ol>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

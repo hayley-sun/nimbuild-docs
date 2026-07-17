@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quickstart | NimBuild Docs</title>
+    <meta name="description" content="Get your NimBuild Starter project running in minutes.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">English</a>
+        <a href="zh/quickstart.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="./">Introduction</a>
+<a class="nav-link active" href="quickstart.html">Quickstart</a>
+<a class="nav-link" href="project-structure.html">Project Structure</a>
+<a class="nav-link" href="development-standards.html">Development Standards</a>
+<a class="nav-link" href="environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="auth/">Authentication Overview</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="payments/">Payments Overview</a>
+<a class="nav-link" href="payments/credits.html">Credit System</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="deployment.html">Deployment</a>
+<a class="nav-link" href="customization.html">Customization</a>
+<a class="nav-link" href="troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Documentation</p>
+            <h1>Quickstart</h1>
+            <p>Get your NimBuild Starter project running in minutes.</p>
+          </header>
+          <h2>Prerequisites</h2>
+<h3>1. Node.js</h3>
+<p>Node.js runs the Next.js dev server, local build scripts, and the project toolchain.</p>
+<pre><code class="language-bash"># Check whether Node.js is installed
+node --version</code></pre>
+<h3>2. pnpm</h3>
+<p>This project uses <code>pnpm</code> as its package manager, and the repository is currently pinned to <code>pnpm 10</code>.</p>
+<pre><code class="language-bash"># Install pnpm
+npm install -g pnpm
+
+# Check the pnpm version
+pnpm --version</code></pre>
+<h3>3. PostgreSQL connection details</h3>
+<p>PostgreSQL database</p>
+<h2>Installation</h2>
+<h3>1. Get the project source</h3>
+<pre><code class="language-bash">git clone git@github.com:hayley-sun/nimbuild-to-production.git
+cd nimbuild-to-production</code></pre>
+<h3>2. Install dependencies</h3>
+<pre><code class="language-bash">pnpm install</code></pre>
+<h3>3. Configure environment variables</h3>
+<p>Copy the example environment file to your local environment file:</p>
+<pre><code class="language-bash">cp .env.example .env.local</code></pre>
+<p>Then edit <code>.env.local</code> and fill in your values.</p>
+<p>At minimum, you need:</p>
+<pre><code class="language-ini">DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"</code></pre>
+<p>See <a href="environment.html">Environment Variables</a> for the full list.</p>
+<h3>4. Set up the database</h3>
+<pre><code class="language-bash">pnpm db:push</code></pre>
+<p>This pushes the Drizzle schema to your database. For production, use migrations:</p>
+<pre><code class="language-bash">pnpm db:generate
+pnpm db:migrate</code></pre>
+<h3>5. Start the dev server</h3>
+<pre><code class="language-bash">pnpm dev</code></pre>
+<p>Visit <code>http://localhost:3000</code> and sign in with the Google account you want to make an admin.</p>
+<h3>6. Promote your account to admin</h3>
+<pre><code class="language-bash">ADMIN_EMAIL=admin@example.com pnpm admin:setup</code></pre>
+<h2>What's Next?</h2>
+<ul><li><a href="project-structure.html">Project Structure</a> — Understand the codebase layout</li><li><a href="auth/">Authentication</a> — Configure Firebase Google sign-in</li><li><a href="payments/">Payments</a> — Set up billing and subscriptions</li><li><a href="customization.html">Customization</a> — Add product-specific workflows</li></ul>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Troubleshooting | NimBuild Docs</title>
+    <meta name="description" content="Common issues and how to resolve them.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">English</a>
+        <a href="zh/troubleshooting.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="./">Introduction</a>
+<a class="nav-link" href="quickstart.html">Quickstart</a>
+<a class="nav-link" href="project-structure.html">Project Structure</a>
+<a class="nav-link" href="development-standards.html">Development Standards</a>
+<a class="nav-link" href="environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="auth/">Authentication Overview</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="payments/">Payments Overview</a>
+<a class="nav-link" href="payments/credits.html">Credit System</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="deployment.html">Deployment</a>
+<a class="nav-link" href="customization.html">Customization</a>
+<a class="nav-link active" href="troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Guides</p>
+            <h1>Troubleshooting</h1>
+            <p>Common issues and how to resolve them.</p>
+          </header>
+          <h2>Webhooks Not Firing</h2>
+<p><strong>Symptoms</strong>: Payments succeed but credits aren't granted.</p>
+<ol><li>Check Stripe Dashboard → Webhooks for delivery logs</li><li>Verify <code>STRIPE_WEBHOOK_SECRET</code> matches your Stripe settings</li><li>Ensure webhook endpoint is publicly accessible</li><li>Check server logs for signature verification errors</li></ol>
+<h2>Annual Credits Not Auto-Granting</h2>
+<p><strong>Symptoms</strong>: Users on yearly plans don't receive monthly credits.</p>
+<ol><li>Verify cron job is running (check <code>/api/cron/subscription-grants</code>)</li><li>Check <code>subscriptionCreditSchedule</code> / <code>subscription_credit_schedule</code> for <code>nextGrantAt</code> / <code>next_grant_at</code> timestamps</li><li>Ensure <code>CRON_SECRET</code> is configured correctly</li></ol>
+<h2>Expiring Credits Not Updating</h2>
+<p><strong>Symptoms</strong>: Daily login credits remain available after their expiry time.</p>
+<ol><li>Verify cron job is running for <code>/api/cron/credit-expiry</code></li><li>Check <code>creditBalanceBucket</code> / <code>credit_balance_bucket</code> rows with expired <code>expiresAt</code> / <code>expires_at</code> values and positive <code>remainingAmount</code> / <code>remaining_amount</code></li><li>Ensure <code>CRON_SECRET</code> or cron basic auth credentials are configured correctly</li></ol>
+<h2>AI Tool Generation Fails</h2>
+<ol><li>Verify <code>VOLCENGINE_API_KEY</code>, <code>VOLCENGINE_BASE_URL</code>, and <code>VOLCENGINE_MODEL</code></li><li>Confirm the server runtime can reach the Volcengine endpoint</li><li>Check <code>aiGeneration</code> / <code>ai_generation</code> rows for failed generation records and error messages</li><li>Confirm the user has enough credits before generation</li></ol>
+<h2>User Can't Access Admin Panel</h2>
+<ol><li>Confirm <code>user.role = 'admin'</code> in the database</li><li>Check <code>requireAdmin()</code> in <code>modules/auth/admin.ts</code></li><li>Ensure the user's session is valid (try logging out and back in)</li></ol>
+<h2>Email Not Sending</h2>
+<ol><li>Verify <code>RESEND_API_KEY</code> and <code>RESEND_FROM_EMAIL</code></li><li>If using <code>onboarding@resend.dev</code>, send only to the email registered on your Resend account</li><li>For production, confirm the sending domain is verified in Resend</li><li>Check Resend email logs for delivery failures</li></ol>
+<h2>Database Connection Issues</h2>
+<ol><li>Verify <code>DATABASE_URL</code> connection string</li><li>Ensure <code>?sslmode=require</code> for cloud databases</li><li>Check if your IP is allowlisted (if using IP restrictions)</li><li>Try connecting directly: <code>psql $DATABASE_URL</code></li></ol>
+<h2>Build Errors After Upgrade</h2>
+<p>If you encounter TypeScript errors after upgrading dependencies:</p>
+<pre><code class="language-bash"># Clear Next.js cache
+rm -rf .next
+
+# Reinstall dependencies
+pnpm install
+
+# Try building again
+pnpm build</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

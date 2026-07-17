@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Firebase Google Sign-In | NimBuild Docs</title>
+    <meta name="description" content="Configure the Firebase Google sign-in provider.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/auth/providers.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" open>
+    <summary>Authentication</summary>
+    <a class="nav-link" href="./">Authentication Overview</a>
+<a class="nav-link active" href="providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="../payments/">Payments Overview</a>
+<a class="nav-link" href="../payments/credits.html">Credit System</a>
+<a class="nav-link" href="../payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="../payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Firebase Google Sign-In</h1>
+            <p>Configure the Firebase Google sign-in provider.</p>
+          </header>
+          <h2>Overview</h2>
+<p>The starter keeps authentication intentionally narrow: users sign in with Google through Firebase Auth. There is no password database, reset-token table, email verification route, or Better Auth adapter.</p>
+<h2>Firebase Setup</h2>
+<ol><li>Create or open a Firebase project.</li><li>Enable <strong>Authentication → Sign-in method → Google</strong>.</li><li>Add your local and production domains to Firebase authorized domains.</li><li>Create a Web App and copy the public client config.</li><li>Create a service account key for Firebase Admin.</li></ol>
+<h2>Environment Variables</h2>
+<pre><code class="language-ini">NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"</code></pre>
+<h2>Optional Cloudflare Turnstile Gate</h2>
+<p>Turnstile can be enabled in front of the Google sign-in button. The auth modal renders Cloudflare verification first, keeps the Google button hidden while verification is running, and shows the Google button only after the Turnstile token is accepted by <code>/api/auth/turnstile</code>.</p>
+<pre><code class="language-ini">NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"</code></pre>
+<p>Create these keys from Cloudflare Turnstile and add every domain that serves the auth modal, including local or preview domains if you want to test the widget outside production. If either value is missing, the starter disables the Turnstile gate.</p>
+<h2>Local User Sync</h2>
+<p>Firebase is the identity provider, while PostgreSQL remains the product database. On session login, <code>modules/auth/user-sync.ts</code> writes or updates the local <code>user</code> row using the Firebase UID as <code>user.id</code>.</p>
+<p>That local row owns product fields such as <code>credits</code>, <code>role</code>, <code>planKey</code>, and ban status.</p>
+<h2>Extending Auth Later</h2>
+<p>Provider-specific code belongs in <code>extensions/auth/*</code>. App-facing session, admin, and user-sync logic should stay in <code>modules/auth</code> so a future provider can be added without changing protected routes and APIs.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

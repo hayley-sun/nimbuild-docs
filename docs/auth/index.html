@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Authentication Overview | NimBuild Docs</title>
+    <meta name="description" content="Firebase Google authentication and server session model.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/auth/">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" open>
+    <summary>Authentication</summary>
+    <a class="nav-link active" href="./">Authentication Overview</a>
+<a class="nav-link" href="providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="../payments/">Payments Overview</a>
+<a class="nav-link" href="../payments/credits.html">Credit System</a>
+<a class="nav-link" href="../payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="../payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Authentication Overview</h1>
+            <p>Firebase Google authentication and server session model.</p>
+          </header>
+          <h2>Overview</h2>
+<p>NimBuild Starter uses Firebase Auth for Google sign-in and HttpOnly server session cookies for server-side authorization. Firebase-specific server code is hidden behind the auth provider adapter so API routes do not depend on Firebase Admin directly. Email/password login, email verification, forgot password, and reset password flows have been removed.</p>
+<h3>Supported Auth Methods</h3>
+<ul><li><strong>Firebase Google sign-in</strong> — The only supported user-facing auth method.</li></ul>
+<h3>Sign-In Flow</h3>
+<ol><li>User opens the global sign-in modal.</li><li>If Cloudflare Turnstile is configured, the modal renders the Turnstile check before the Google button. Low-risk visitors pass through automatically; higher-risk visitors complete the visible confirmation control first.</li><li>After Turnstile passes, the modal shows the Google sign-in button.</li><li>Firebase client SDK returns an ID token.</li><li>The browser posts the ID token to <code>/api/auth/session-login</code>.</li><li>The server verifies the token through <code>modules/auth/provider.ts</code> and creates a server session cookie.</li><li><code>modules/auth/user-sync.ts</code> syncs the Firebase user into the local <code>user</code> table.</li></ol>
+<h3>Configuration</h3>
+<p>Firebase client and server adapters live under <code>extensions/auth/firebase</code>:</p>
+<pre><code class="language-typescript">// Browser SDK
+getFirebaseClientAuth();
+getGoogleAuthProvider();
+
+// Server provider adapter
+firebaseAuthProvider;</code></pre>
+<p>The browser uses <code>NEXT_PUBLIC_FIREBASE_*</code> values. Server session verification uses <code>FIREBASE_PROJECT_ID</code>, <code>FIREBASE_CLIENT_EMAIL</code>, and <code>FIREBASE_PRIVATE_KEY</code> inside the Firebase extension. Application-facing server code should call <code>modules/auth</code> or <code>modules/auth/provider.ts</code>, not Firebase Admin directly.</p>
+<p>Cloudflare Turnstile is optional. When both <code>NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY</code> and <code>CLOUDFLARE_TURNSTILE_SECRET_KEY</code> are set, <code>features/auth/components/turnstile-gate.tsx</code> gates the Google button and <code>/api/auth/turnstile</code> verifies the token with Cloudflare Siteverify. When either value is missing, the gate is disabled so local development can still sign in.</p>
+<h3>Session Management</h3>
+<ul><li>Sessions are HttpOnly provider-backed session cookies, not database session rows.</li><li>Local user, role, credits, ban status, and plan live in the <code>user</code> table.</li><li>Session login syncs the local user. Request-time authorization checks the session cookie, resolves the local user, and checks ban status.</li><li>Protected routes and APIs use <code>getActiveSessionUser()</code> from <code>modules/auth</code>.</li><li><code>getActiveSessionUser()</code> keeps a short in-process cache of local access fields. Admin mutations that change role, ban state, deletion, or access-sensitive plan markers must call <code>invalidateAuthAccessCache(userId)</code> after a successful write.</li></ul>
+<h3>Route Protection</h3>
+<div class="table-wrap"><table>
+    <thead><tr><th>Route Group</th><th>Protection</th></tr></thead>
+    <tbody><tr><td><code>(protected)</code></td><td>Requires login — redirects to <code>/?auth=login</code></td></tr><tr><td><code>(admin)</code></td><td>Requires <code>role='admin'</code></td></tr><tr><td><code>(marketing)</code></td><td>Public</td></tr></tbody>
+  </table></div>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

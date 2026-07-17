@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>邮件系统 | NimBuild Docs</title>
+    <meta name="description" content="基于 Resend 的交易邮件。">
+    <link rel="stylesheet" href="../../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">中文</a>
+        <a href="../../email/">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="../">简介</a>
+<a class="nav-link" href="../quickstart.html">快速开始</a>
+<a class="nav-link" href="../project-structure.html">项目结构</a>
+<a class="nav-link" href="../development-standards.html">开发规范</a>
+<a class="nav-link" href="../environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="../auth/">认证系统概览</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="../payments/">支付系统概览</a>
+<a class="nav-link" href="../payments/credits.html">积分系统</a>
+<a class="nav-link" href="../payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="../payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" open>
+    <summary>邮件</summary>
+    <a class="nav-link active" href="./">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="../admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="../deployment.html">部署指南</a>
+<a class="nav-link" href="../customization.html">自定义指南</a>
+<a class="nav-link" href="../troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">模块</p>
+            <h1>邮件系统</h1>
+            <p>基于 Resend 的交易邮件。</p>
+          </header>
+          <h2>概述</h2>
+<p>NimBuild Starter 使用 Resend 发送交易邮件。业务代码只从 <code>extensions/email</code> 导入隐藏 provider 的统一封装，Resend 具体适配器位于 <code>extensions/email/providers/resend.ts</code>。</p>
+<h2>邮件类型</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>邮件</th><th>触发条件</th><th>实现方式</th></tr></thead>
+    <tbody><tr><td>购买确认</td><td>支付 webhook</td><td><code>extensions/email/templates.ts</code></td></tr></tbody>
+  </table></div>
+<h2>配置</h2>
+<pre><code class="language-ini">RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild &lt;onboarding@resend.dev&gt;"
+RESEND_REPLY_TO="support@example.com"</code></pre>
+<h3>开发模式</h3>
+<p>未验证发送域名时，可以使用 Resend 的 <code>onboarding@resend.dev</code> 发件人做本地测试，但只能发送到 Resend 账号注册邮箱。发送到其他收件人需要先验证域名。</p>
+<h3>生产环境</h3>
+<p>生产环境需要在 Resend 中验证发送域名，并将 <code>RESEND_FROM_EMAIL</code> 设置为该域名下的地址，例如 <code>NimBuild &lt;noreply@mail.example.com&gt;</code>。</p>
+<h2>邮件内容</h2>
+<p>通用交易邮件通过 <code>extensions/email</code> 导出的 <code>sendEmail()</code> 发送。</p>
+<h2>错误处理</h2>
+<p>所有邮件发送都包裹在 try-catch 中。发送失败会记录日志但不会导致应用崩溃。系统返回成功/错误元组而非抛出异常：</p>
+<pre><code class="language-typescript">const result = await sendEmail({
+  to: email,
+  subject: "Subject",
+  html: "&lt;p&gt;Hello&lt;/p&gt;",
+});
+
+if (!result.success) {
+  console.error(result.error);
+}</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

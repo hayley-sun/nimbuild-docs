@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>订阅升级设计 | NimBuild Docs</title>
+    <meta name="description" content="basic_monthly 会员升级到 pro_monthly 会员的功能设计。">
+    <link rel="stylesheet" href="../../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">中文</a>
+        <a href="../../payments/subscription-upgrade.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="../">简介</a>
+<a class="nav-link" href="../quickstart.html">快速开始</a>
+<a class="nav-link" href="../project-structure.html">项目结构</a>
+<a class="nav-link" href="../development-standards.html">开发规范</a>
+<a class="nav-link" href="../environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="../auth/">认证系统概览</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" open>
+    <summary>支付</summary>
+    <a class="nav-link" href="./">支付系统概览</a>
+<a class="nav-link" href="credits.html">积分系统</a>
+<a class="nav-link" href="webhooks.html">Webhooks</a>
+<a class="nav-link active" href="subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="../email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="../admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="../deployment.html">部署指南</a>
+<a class="nav-link" href="../customization.html">自定义指南</a>
+<a class="nav-link" href="../troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">模块</p>
+            <h1>订阅升级设计</h1>
+            <p>basic_monthly 会员升级到 pro_monthly 会员的功能设计。</p>
+          </header>
+          <h2>目标</h2>
+<p>当用户已经购买 <code>basic_monthly</code>，再选择 <code>pro_monthly</code> 时，系统应该升级同一个 Stripe 订阅，而不是创建第二个订阅。本地的支付、订阅、用户计划和积分账本必须和 Stripe 保持一致。</p>
+<p>第一期只支持这一条升级路径：</p>
+<pre><code class="language-text">basic_monthly -&gt; pro_monthly</code></pre>
+<p>后续如果要支持年付升级、降级或月付年付互转，需要先补充对应的产品和积分规则。</p>
+<h2>当前状态</h2>
+<p>仓库里已经有主要入口：</p>
+<ul><li>价格页调用 <code>POST /api/payments/stripe/checkout</code>。</li><li><code>app/api/payments/stripe/checkout/route.ts</code> 会查询用户当前 active 订阅。</li><li>如果当前订阅和目标计划不同，会调用 <code>updateSubscriptionPlan(...)</code>。</li><li><code>extensions/payment/stripe/index.ts</code> 会更新现有 Stripe subscription item。</li><li>Stripe webhook 由 <code>extensions/payment/stripe/webhook-service.ts</code> 处理。</li><li><code>extensions/payment/stripe/webhook-accounting.ts</code> 负责写入 <code>payment</code>、<code>subscription</code>、<code>user.planKey</code>、积分账本和积分 bucket。</li></ul>
+<p>主要风险在积分入账。Stripe 订阅升级可能生成一张按比例补差价的发票。如果 webhook 把这张发票当作普通 <code>pro_monthly</code> 周期处理，就会发放完整 5,000 Pro 积分，而用户本周期已经拿过 1,000 Basic 积分。</p>
+<h2>产品规则</h2>
+<p>对于 <code>basic_monthly -&gt; pro_monthly</code>：</p>
+<ul><li>沿用同一个 Stripe subscription。</li><li>保持当前账期锚点不变。</li><li>立即收取按比例计算的升级差价。</li><li>立即发放当前周期的积分差额：</li></ul>
+<pre><code class="language-text">pro_monthly 积分 - basic_monthly 积分 = 5,000 - 1,000 = 4,000 积分</code></pre>
+<ul><li>下一次续费发票成功后，按 <code>pro_monthly</code> 正常发放 5,000 积分。</li><li>不扣回已经发放的 Basic 积分。</li><li>不创建第二条 active 订阅记录。</li></ul>
+<h2>Stripe 更新行为</h2>
+<p>使用 Stripe Subscription Update 更新现有 subscription item：</p>
+<pre><code class="language-ts">await stripe.subscriptions.update(subscriptionId, {
+  items: [
+    {
+      id: subscriptionItemId,
+      price: subscriptionPlans.pro_monthly.stripePriceId,
+    },
+  ],
+  proration_behavior: "always_invoice",
+  billing_cycle_anchor: "unchanged",
+  metadata: {
+    userId,
+    key: "pro_monthly",
+    kind: "subscription",
+  },
+});</code></pre>
+<p>不要传 <code>payment_method_types</code>。支付方式由 Stripe Dashboard 的动态支付方式配置决定。</p>
+<p>调用 Stripe 更新接口时使用幂等键：</p>
+<pre><code class="language-text">subscription-upgrade:{userId}:{subscriptionId}:basic_monthly:pro_monthly</code></pre>
+<p>现有 <code>STRIPE_SIMULATE="true"</code> 分支继续直接返回成功 URL，不调用 Stripe。</p>
+<h2>待处理升级记录</h2>
+<p>建议新增一张小表，让 webhook 入账逻辑可判定当前发票是不是“升级差价发票”：</p>
+<pre><code class="language-text">subscription_plan_change</code></pre>
+<p>建议字段：</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>字段</th><th>用途</th></tr></thead>
+    <tbody><tr><td><code>id</code></td><td>内部 UUID。</td></tr><tr><td><code>provider</code></td><td><code>stripe</code>。</td></tr><tr><td><code>providerSubId</code></td><td>Stripe subscription id。</td></tr><tr><td><code>userId</code></td><td>本地 Firebase uid。</td></tr><tr><td><code>fromPlanKey</code></td><td><code>basic_monthly</code>。</td></tr><tr><td><code>toPlanKey</code></td><td><code>pro_monthly</code>。</td></tr><tr><td><code>status</code></td><td><code>pending</code>、<code>applied</code>、<code>failed</code>、<code>canceled</code>。</td></tr><tr><td><code>creditDelta</code></td><td><code>4000</code>。</td></tr><tr><td><code>requestedAt</code></td><td>用户发起升级的时间。</td></tr><tr><td><code>appliedPaymentId</code></td><td>成功入账后的 Stripe invoice payment id。</td></tr><tr><td><code>raw</code></td><td>可选的 provider payload 快照。</td></tr><tr><td><code>createdAt</code> / <code>updatedAt</code></td><td>审计时间。</td></tr></tbody>
+  </table></div>
+<p>在调用 <code>updateSubscriptionPlan(...)</code> 的服务端路径里，先创建这条记录，再调用 Stripe。如果 Stripe API 调用失败，把记录标记为 <code>failed</code>。</p>
+<p>这张表可以避免把升级差价发票误判成完整月度续费发票。</p>
+<h2>API 流程</h2>
+<ol><li>用户点击 <code>pro_monthly</code> 的价格 CTA。</li><li>客户端调用：</li></ol>
+<pre><code class="language-http">POST /api/payments/stripe/checkout</code></pre>
+<pre><code class="language-json">{
+  "kind": "subscription",
+  "key": "pro_monthly"
+}</code></pre>
+<ol><li>Route 查询该用户最新 active 订阅。</li><li>如果没有 active 订阅，走现有 Checkout 流程。</li><li>如果当前已经是 <code>pro_monthly</code>，直接返回成功 URL。</li><li>如果当前是 <code>basic_monthly</code>，校验这是受支持的升级。</li><li>写入 <code>subscription_plan_change</code>，其中 <code>creditDelta = 4000</code>。</li><li>更新 Stripe subscription item 到 Pro monthly price。</li><li>返回成功 URL。</li></ol>
+<p>期望响应：</p>
+<pre><code class="language-json">{
+  "code": "OK",
+  "data": {
+    "url": "https://your-app.example/credits?success=1"
+  }
+}</code></pre>
+<h2>Webhook 流程</h2>
+<h3><code>customer.subscription.updated</code></h3>
+<p>这个事件只更新订阅状态，不发积分：</p>
+<ul><li>更新 <code>subscription.planKey</code> 为 <code>pro_monthly</code>。</li><li>更新 <code>subscription.currentPeriodEnd</code>。</li><li>更新 <code>user.planKey</code> 为 <code>pro_monthly</code>。</li><li>不在这个事件里发放积分。</li></ul>
+<h3><code>invoice.paid</code></h3>
+<p>每张已支付发票：</p>
+<ol><li>解析 <code>subscriptionId</code>、<code>paymentId</code>、<code>userId</code> 和目标计划 metadata。</li><li>查询是否存在同一个 <code>providerSubId</code>、<code>userId</code>、<code>toPlanKey</code> 的 <code>pending</code> 升级记录。</li><li>如果存在：</li></ol>
+<ul><li>写入这张差价发票对应的 <code>payment</code> 记录。</li><li>upsert 现有 <code>subscription</code> 为 <code>pro_monthly</code>。</li><li>通过现有订阅积分账本路径发放 <code>creditDelta</code> 积分。</li><li>把升级记录标记为 <code>applied</code>。</li><li>写入 <code>appliedPaymentId</code>。</li></ul>
+<ol><li>如果不存在：</li></ol>
+<ul><li>按普通订阅续费处理。</li><li>根据 <code>constants/billing.ts</code> 发放完整周期积分。</li></ul>
+<p>所有本地写入应该放在一个数据库事务里完成。</p>
+<h2>积分入账</h2>
+<p>升级差价发票：</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>记录</th><th>值</th></tr></thead>
+    <tbody><tr><td><code>payment.type</code></td><td><code>subscription</code></td></tr><tr><td><code>payment.planKey</code></td><td><code>pro_monthly</code></td></tr><tr><td><code>payment.creditsGranted</code></td><td><code>4000</code></td></tr><tr><td><code>credit_ledger.reason</code></td><td><code>subscription_cycle</code></td></tr><tr><td><code>credit_balance_bucket.sourceType</code></td><td><code>subscription</code></td></tr><tr><td><code>credit_balance_bucket.expiresAt</code></td><td>当前订阅周期结束时间</td></tr><tr><td><code>user.credits</code></td><td>增加 <code>4000</code></td></tr></tbody>
+  </table></div>
+<p>下一次正常续费发票：</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>记录</th><th>值</th></tr></thead>
+    <tbody><tr><td><code>payment.planKey</code></td><td><code>pro_monthly</code></td></tr><tr><td><code>payment.creditsGranted</code></td><td><code>5000</code></td></tr><tr><td><code>credit_ledger.reason</code></td><td><code>subscription_cycle</code></td></tr></tbody>
+  </table></div>
+<p>这样可以保持 <code>user.credits</code>、<code>credit_ledger</code>、<code>payment</code> 和 <code>subscription</code> 一致。</p>
+<h2>UI 行为</h2>
+<p>价格页可以继续调用同一个 CTA endpoint。按钮状态根据当前计划展示：</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>当前计划</th><th>Basic monthly 按钮</th><th>Pro monthly 按钮</th></tr></thead>
+    <tbody><tr><td>Free / 未登录</td><td>购买 / 登录</td><td>购买 / 登录</td></tr><tr><td><code>basic_monthly</code></td><td>当前计划</td><td>升级</td></tr><tr><td><code>pro_monthly</code></td><td>禁用低等级计划</td><td>当前计划</td></tr></tbody>
+  </table></div>
+<p>第一期不支持降级和跨周期切换，除非先补充明确的产品规则。</p>
+<h2>校验规则</h2>
+<p>后端应该拒绝不支持的计划变更：</p>
+<ul><li>没有 active 订阅，目标 key 合法：走 Checkout。</li><li>active <code>basic_monthly</code>，目标 <code>pro_monthly</code>：升级。</li><li>active 计划等于目标计划：返回成功 URL。</li><li>active <code>pro_monthly</code>，目标 <code>basic_monthly</code>：拒绝，或引导到未来的降级流程。</li><li>月付转年付、年付转月付：规则未定义前拒绝。</li><li>未知计划 key：返回 <code>ApiCode.INVALID_SUBSCRIPTION_KEY</code>。</li></ul>
+<p>建议新增显式 helper：</p>
+<pre><code class="language-ts">isSupportedSubscriptionUpgrade(fromPlanKey, toPlanKey)</code></pre>
+<h2>失败处理</h2>
+<ul><li>Stripe 更新失败时，把 pending change 标记为 <code>failed</code>，不要修改本地 <code>user.planKey</code>。</li><li><code>invoice.paid</code> 重复投递时，现有 <code>payment.providerPaymentId</code> 幂等检查必须阻止重复发积分。</li><li>如果 <code>customer.subscription.updated</code> 先于 <code>invoice.paid</code> 到达，可以先更新可见计划，但不能发积分，直到已支付发票到达。</li><li>如果付款失败，不发积分。pending change 保持 <code>pending</code>，直到后续成功发票到达，或清理任务把它标记为 <code>failed</code>。</li></ul>
+<h2>测试</h2>
+<p>需要增加聚焦测试：</p>
+<ul><li>Checkout route 为 <code>basic_monthly -&gt; pro_monthly</code> 创建 pending upgrade 记录。</li><li>Checkout route 拒绝 <code>pro_monthly -&gt; basic_monthly</code>。</li><li>Stripe update 使用现有 subscription item、Pro price id、<code>always_invoice</code> 和 unchanged billing anchor。</li><li><code>customer.subscription.updated</code> 只更新计划状态，不发积分。</li><li>带 pending upgrade 的 <code>invoice.paid</code> 只发放 <code>4000</code> 积分。</li><li>重复 <code>invoice.paid</code> 不重复发积分。</li><li>升级后的下一次 Pro 正常续费发放 <code>5000</code> 积分。</li></ul>
+<p>运行：</p>
+<pre><code class="language-bash">pnpm test tests/app/api/payments/stripe/checkout/route.test.ts tests/extensions/payment/stripe/webhook-service.test.ts tests/extensions/payment/stripe/webhook-accounting.test.ts
+pnpm lint</code></pre>
+<p>新增表后运行 <code>pnpm db:generate</code>。</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>故障排查 | NimBuild Docs</title>
+    <meta name="description" content="常见问题及解决方案。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../troubleshooting.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link" href="quickstart.html">快速开始</a>
+<a class="nav-link" href="project-structure.html">项目结构</a>
+<a class="nav-link" href="development-standards.html">开发规范</a>
+<a class="nav-link" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="deployment.html">部署指南</a>
+<a class="nav-link" href="customization.html">自定义指南</a>
+<a class="nav-link active" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">指南</p>
+            <h1>故障排查</h1>
+            <p>常见问题及解决方案。</p>
+          </header>
+          <h2>Webhook 未触发</h2>
+<p><strong>症状</strong>：支付成功但积分未发放。</p>
+<ol><li>检查 Stripe Dashboard → Webhooks 的投递日志</li><li>验证 <code>STRIPE_WEBHOOK_SECRET</code> 与 Stripe 设置匹配</li><li>确保 webhook 端点可公开访问</li><li>检查服务器日志中的签名验证错误</li></ol>
+<h2>年付积分未自动发放</h2>
+<p><strong>症状</strong>：年付计划用户未收到月度积分。</p>
+<ol><li>验证定时任务是否正常运行（检查 <code>/api/cron/subscription-grants</code>）</li><li>查看 <code>subscriptionCreditSchedule</code> / <code>subscription_credit_schedule</code> 中的 <code>nextGrantAt</code> / <code>next_grant_at</code> 时间</li><li>确保 <code>CRON_SECRET</code> 配置正确</li></ol>
+<h2>过期积分未更新</h2>
+<p><strong>症状</strong>：每日登录积分过期后仍然可用。</p>
+<ol><li>验证 <code>/api/cron/credit-expiry</code> 定时任务是否正常运行</li><li>查看 <code>creditBalanceBucket</code> / <code>credit_balance_bucket</code> 中 <code>expiresAt</code> / <code>expires_at</code> 已过期且 <code>remainingAmount</code> / <code>remaining_amount</code> 大于 0 的记录</li><li>确保 <code>CRON_SECRET</code> 或 cron basic auth 凭据配置正确</li></ol>
+<h2>AI 工具生成失败</h2>
+<ol><li>验证 <code>VOLCENGINE_API_KEY</code>、<code>VOLCENGINE_BASE_URL</code> 和 <code>VOLCENGINE_MODEL</code></li><li>确认服务端运行环境可以访问火山引擎 endpoint</li><li>查看 <code>aiGeneration</code> / <code>ai_generation</code> 中失败的生成记录和错误信息</li><li>确认用户生成前有足够积分</li></ol>
+<h2>用户无法访问管理后台</h2>
+<ol><li>确认数据库中 <code>user.role = 'admin'</code></li><li>检查 <code>modules/auth/admin.ts</code> 中的 <code>requireAdmin()</code></li><li>确保用户会话有效（尝试退出重新登录）</li></ol>
+<h2>邮件发送失败</h2>
+<ol><li>验证 <code>RESEND_API_KEY</code> 和 <code>RESEND_FROM_EMAIL</code></li><li>如果使用 <code>onboarding@resend.dev</code>，只能发送到 Resend 账号注册邮箱</li><li>生产环境需确认 Resend 发送域名已验证</li><li>查看 Resend 邮件日志中的投递失败信息</li></ol>
+<h2>数据库连接问题</h2>
+<ol><li>验证 <code>DATABASE_URL</code> 连接字符串</li><li>确保云数据库包含 <code>?sslmode=require</code></li><li>检查 IP 是否在白名单中（如有 IP 限制）</li><li>尝试直接连接：<code>psql $DATABASE_URL</code></li></ol>
+<h2>升级后构建报错</h2>
+<p>如果升级依赖后遇到 TypeScript 错误：</p>
+<pre><code class="language-bash"># 清除 Next.js 缓存
+rm -rf .next
+
+# 重新安装依赖
+pnpm install
+
+# 重新构建
+pnpm build</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

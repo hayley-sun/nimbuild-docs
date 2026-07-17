@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Development Standards | NimBuild Docs</title>
+    <meta name="description" content="Module boundaries, API authorization, and server/client rules for extending the starter.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">English</a>
+        <a href="zh/development-standards.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="./">Introduction</a>
+<a class="nav-link" href="quickstart.html">Quickstart</a>
+<a class="nav-link" href="project-structure.html">Project Structure</a>
+<a class="nav-link active" href="development-standards.html">Development Standards</a>
+<a class="nav-link" href="environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="auth/">Authentication Overview</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="payments/">Payments Overview</a>
+<a class="nav-link" href="payments/credits.html">Credit System</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="deployment.html">Deployment</a>
+<a class="nav-link" href="customization.html">Customization</a>
+<a class="nav-link" href="troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Documentation</p>
+            <h1>Development Standards</h1>
+            <p>Module boundaries, API authorization, and server/client rules for extending the starter.</p>
+          </header>
+          <p>This starter is meant to be extended as a product base. New code should keep framework routes thin, business logic testable, and third-party providers replaceable.</p>
+<h2>Choose the Owning Layer</h2>
+<p>Use the smallest layer that owns the behavior:</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Layer</th><th>Put code here when...</th></tr></thead>
+    <tbody><tr><td><code>app/[locale]/*</code></td><td>It composes a page, layout, route group, or metadata entry.</td></tr><tr><td><code>app/api/**/route.ts</code></td><td>It parses a request and returns an API response.</td></tr><tr><td><code>features/&lt;feature&gt;/components</code></td><td>It is feature-owned UI.</td></tr><tr><td><code>features/&lt;feature&gt;/pages</code></td><td>It composes a feature page used by App Router pages.</td></tr><tr><td><code>features/&lt;feature&gt;/actions</code></td><td>A Client Component needs to call a Server Action.</td></tr><tr><td><code>features/&lt;feature&gt;/server</code></td><td>It is feature-owned backend query, mutation, or workflow logic.</td></tr><tr><td><code>features/&lt;feature&gt;/support</code></td><td>It is feature-owned shared helper code that is safe for frontend and backend.</td></tr><tr><td><code>modules/*</code></td><td>It is reusable domain logic that should not depend on app routes, features, or UI components.</td></tr><tr><td><code>extensions/*</code></td><td>It adapts a third-party SDK or provider to a module-facing interface.</td></tr><tr><td><code>lib/client-api/*</code></td><td>Browser-only API hooks and client framework glue.</td></tr><tr><td><code>components/*</code></td><td>It is app-wide reusable UI.</td></tr></tbody>
+  </table></div>
+<p>Do not put provider SDK details in API routes. API routes should call modules or feature server functions.</p>
+<h2>Import Boundaries</h2>
+<p>The main boundaries are enforced in <code>eslint.config.mjs</code>.</p>
+<ul><li>Client/UI files must not import DB clients, provider admin SDKs, payment/email/storage adapters, or <code>features/*/server</code>.</li><li>Backend files must not import React UI components or browser-only helpers such as <code>modules/auth/client</code>.</li><li><code>modules/*</code> and <code>extensions/*</code> must not depend on <code>app/*</code>, <code>features/*</code>, or <code>components/*</code>.</li><li>If a new exception is truly needed, add it explicitly to <code>eslint.config.mjs</code> and update <code>tests/config/eslint-boundaries.test.ts</code>.</li></ul>
+<h2>API Route Standard</h2>
+<p>Most JSON API routes should use <code>defineApiHandler(...)</code> from <code>modules/auth/api-handler.ts</code>:</p>
+<pre><code class="language-typescript">export const POST = defineApiHandler({ auth: "admin" }, async (req, { user }) =&gt; {
+  // Parse request data, call feature/server or module code, then return apiSuccess/apiCodeError.
+});</code></pre>
+<p>Every route under <code>app/api/**/route.ts</code> must be declared in <code>modules/auth/api-policy.ts</code> with one of these auth modes:</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Mode</th><th>Meaning</th></tr></thead>
+    <tbody><tr><td><code>public</code></td><td>No session required.</td></tr><tr><td><code>user</code></td><td>Requires an authenticated, non-banned user.</td></tr><tr><td><code>admin</code></td><td>Requires an authenticated admin user.</td></tr><tr><td><code>cron-secret</code></td><td>Requires cron shared-secret validation.</td></tr><tr><td><code>stripe-webhook</code></td><td>Uses Stripe signature verification and custom webhook responses.</td></tr></tbody>
+  </table></div>
+<p>Routes may skip <code>defineApiHandler(...)</code> only when they require custom protocol behavior, such as Stripe webhook status/body handling, redirects, HTML responses, or public status probes. They still need an explicit policy entry.</p>
+<p>HTTP status strategy:</p>
+<ul><li>unauthenticated user/admin routes return <code>401</code>;</li><li>authenticated non-admin users on admin routes return <code>403</code>;</li><li>expected business errors usually return HTTP <code>200</code> with a non-OK <code>ApiCode</code>;</li><li>unexpected system exceptions return HTTP <code>500</code> with <code>ApiCode.INTERNAL_ERROR</code>.</li></ul>
+<p>Module and feature server functions should return stable <code>ApiCode</code> values for failure cases. User-facing messages are assembled by the API/client layer with <code>getApiMessage(...)</code>.</p>
+<h2>Server Action Standard</h2>
+<p>Server Actions that need auth should use <code>defineServerAction(...)</code> from <code>modules/auth/action-handler.ts</code>:</p>
+<pre><code class="language-typescript">export const updateThing = defineServerAction("admin", async ({ user }, id: string) =&gt; {
+  // user is the resolved access user.
+});</code></pre>
+<p>Do not hand-roll <code>isAdmin()</code> or <code>getActiveSessionUser()</code> checks inside individual Server Actions. Keep the action as orchestration code: authorize, call a feature server/module function, translate <code>ApiCode</code> failures to messages, and revalidate paths when needed.</p>
+<h2>Auth Provider Boundary</h2>
+<p>Authentication provider details are hidden behind <code>modules/auth/provider.ts</code>.</p>
+<ul><li>Firebase server code belongs under <code>extensions/auth/firebase/*</code>.</li><li>API routes, feature server modules, and app layouts should use <code>modules/auth</code> exports instead of importing Firebase Admin directly.</li><li>Browser sign-in code may use <code>modules/auth/client.ts</code>, which wraps the browser Firebase adapter.</li><li>If a future provider such as Better Auth replaces Firebase, keep API route signatures stable and swap the provider adapter behind <code>modules/auth/provider.ts</code>.</li></ul>
+<p><code>getActiveSessionUser()</code> uses <code>modules/auth/access-cache.ts</code> for local user access fields. The default store is a short-TTL in-process memory store. Code should depend on the store interface so Redis or Vercel Runtime Cache can replace it later.</p>
+<p>Admin mutations that change access-related user fields must invalidate that cache after a successful write:</p>
+<ul><li>role changes;</li><li>ban or unban changes;</li><li>user deletion;</li><li>plan marker changes if the value is used by access-sensitive UI or API behavior.</li></ul>
+<p>Use <code>invalidateAuthAccessCache(userId)</code> from <code>modules/auth/session.ts</code> for targeted invalidation.</p>
+<h2>Client API Helpers</h2>
+<p><code>modules/client-api/*</code> is for shared DTOs, API envelopes, result types, and <code>ApiCode</code> definitions. Browser hooks that depend on React, <code>next-intl</code>, or UI toast components belong in <code>lib/client-api/*</code>.</p>
+<p>Use <code>useApiFetch()</code> from <code>lib/client-api/use-api-fetch.ts</code> in Client Components so locale headers and standard error toasts are applied consistently.</p>
+<h2>Testing Rules</h2>
+<p>Add focused tests with the code you change:</p>
+<ul><li>API auth policy coverage: <code>tests/app/api-auth-policy.test.ts</code>.</li><li>API handler behavior: <code>tests/modules/auth/api-handler.test.ts</code>.</li><li>Auth/session behavior: <code>tests/modules/auth/*</code>.</li><li>Import boundaries: <code>tests/config/eslint-boundaries.test.ts</code>.</li><li>Feature server logic: <code>tests/features/&lt;feature&gt;/server/*</code>.</li><li>Module logic: <code>tests/modules/&lt;module&gt;/*</code>.</li></ul>
+<p>Run <code>pnpm lint</code> after route, UI, config, or docs-navigation changes. Run the focused <code>pnpm test ...</code> command for the area you touched.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

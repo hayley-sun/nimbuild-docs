@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Email System | NimBuild Docs</title>
+    <meta name="description" content="Transactional emails via Resend.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/email/">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="../auth/">Authentication Overview</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="../payments/">Payments Overview</a>
+<a class="nav-link" href="../payments/credits.html">Credit System</a>
+<a class="nav-link" href="../payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="../payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" open>
+    <summary>Email</summary>
+    <a class="nav-link active" href="./">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Email System</h1>
+            <p>Transactional emails via Resend.</p>
+          </header>
+          <h2>Overview</h2>
+<p>NimBuild Starter uses Resend for transactional emails. Application code imports the provider-hidden facade from <code>extensions/email</code>, while the Resend-specific adapter stays inside <code>extensions/email/providers/resend.ts</code>.</p>
+<h2>Email Types</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>Email</th><th>Trigger</th><th>Implementation</th></tr></thead>
+    <tbody><tr><td>Purchase Confirmation</td><td>Payment webhook</td><td><code>extensions/email/templates.ts</code></td></tr></tbody>
+  </table></div>
+<h2>Configuration</h2>
+<pre><code class="language-ini">RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild &lt;onboarding@resend.dev&gt;"
+RESEND_REPLY_TO="support@example.com"</code></pre>
+<h3>Development Mode</h3>
+<p>For local testing without a verified sending domain, use Resend's <code>onboarding@resend.dev</code> sender and send only to the email address registered on your Resend account. Sending to other recipients requires a verified domain.</p>
+<h3>Production</h3>
+<p>For production, verify your sending domain in Resend and set <code>RESEND_FROM_EMAIL</code> to an address on that domain, such as <code>NimBuild &lt;noreply@mail.example.com&gt;</code>.</p>
+<h2>Email Bodies</h2>
+<p>Generic transactional emails are sent through <code>sendEmail()</code> from <code>extensions/email</code>.</p>
+<h2>Error Handling</h2>
+<p>All email sends are wrapped in try-catch. Failed sends are logged but don't crash the application. The system returns a success/error tuple instead of throwing:</p>
+<pre><code class="language-typescript">const result = await sendEmail({
+  to: email,
+  subject: "Subject",
+  html: "&lt;p&gt;Hello&lt;/p&gt;",
+});
+
+if (!result.success) {
+  console.error(result.error);
+}</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

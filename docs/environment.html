@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Environment Variables | NimBuild Docs</title>
+    <meta name="description" content="Complete reference for all environment variables.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">English</a>
+        <a href="zh/environment.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="./">Introduction</a>
+<a class="nav-link" href="quickstart.html">Quickstart</a>
+<a class="nav-link" href="project-structure.html">Project Structure</a>
+<a class="nav-link" href="development-standards.html">Development Standards</a>
+<a class="nav-link active" href="environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="auth/">Authentication Overview</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="payments/">Payments Overview</a>
+<a class="nav-link" href="payments/credits.html">Credit System</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="deployment.html">Deployment</a>
+<a class="nav-link" href="customization.html">Customization</a>
+<a class="nav-link" href="troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Documentation</p>
+            <h1>Environment Variables</h1>
+            <p>Complete reference for all environment variables.</p>
+          </header>
+          <h2>Required Variables</h2>
+<p>These variables are <strong>required</strong> for the application to function:</p>
+<h3>Database</h3>
+<pre><code class="language-ini">DATABASE_URL="postgresql://user:password@host/db?sslmode=require"</code></pre>
+<h3>Authentication</h3>
+<pre><code class="language-ini">NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"</code></pre>
+<h3>Application URL</h3>
+<pre><code class="language-ini">NEXT_PUBLIC_APP_URL="http://localhost:3000"</code></pre>
+<h2>Service Integrations</h2>
+<h3>Stripe (Payments)</h3>
+<p>Required for Stripe subscription checkout and webhook processing:</p>
+<pre><code class="language-ini">STRIPE_SECRET_KEY="your-stripe-api-key"
+STRIPE_WEBHOOK_SECRET="whsec_..."</code></pre>
+<p>For testing without real payments:</p>
+<pre><code class="language-ini">STRIPE_SIMULATE="true"</code></pre>
+<h3>Resend (Email)</h3>
+<p>Required for purchase confirmations:</p>
+<pre><code class="language-ini">RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild &lt;onboarding@resend.dev&gt;"
+RESEND_REPLY_TO="support@example.com"</code></pre>
+<h3>Volcengine (AI Tools)</h3>
+<p>Required for the AI tools workspace and Xiaohongshu copy generation:</p>
+<pre><code class="language-ini">VOLCENGINE_API_KEY="your-volcengine-api-key"
+VOLCENGINE_BASE_URL="https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+VOLCENGINE_MODEL="your-volcengine-model-id"</code></pre>
+<h3>Cron Jobs</h3>
+<p>Use either bearer-token auth:</p>
+<pre><code class="language-ini">CRON_SECRET="your-cron-secret"</code></pre>
+<p>Or basic auth:</p>
+<pre><code class="language-ini">CRON_JOBS_USERNAME="your_username"
+CRON_JOBS_PASSWORD="your_password"</code></pre>
+<h2>Optional Analytics</h2>
+<pre><code class="language-ini">NEXT_PUBLIC_GOOGLE_ANALYTICS_ID="G-..."
+NEXT_PUBLIC_ANALYTICS_ENABLE_IN_DEVELOPMENT="false"</code></pre>
+<h2>Optional Cloudflare Turnstile</h2>
+<p>Used by the login/signup modal to verify visitor risk before showing the Google sign-in button. Configure both values to enable the gate:</p>
+<pre><code class="language-ini">NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"</code></pre>
+<p>If either value is missing, Turnstile is disabled and Google sign-in is shown directly.</p>
+<h2>Optional Storage (Cloudflare R2 or S3-Compatible)</h2>
+<p>User uploads are handled by <code>/api/upload/file</code> for ordinary files and <code>/api/upload/image</code> for image-only uploads. Both routes call the storage facade in <code>extensions/storage</code>, so feature code does not depend on Cloudflare R2, UCloud US3, or any specific object storage SDK. When storage credentials are missing, the starter returns a data URL fallback for local testing.</p>
+<p>Cloudflare R2 example:</p>
+<pre><code class="language-ini">STORAGE_PROVIDER="r2"
+R2_ACCOUNT_ID="your-account-id"
+R2_BUCKET_NAME="your-bucket"
+R2_ACCESS_KEY_ID="your-access-key"
+R2_SECRET_ACCESS_KEY="your-secret-key"
+R2_PUBLIC_URL="https://your-storage-domain.example.com"</code></pre>
+<p>Generic S3-compatible storage, including UCloud US3:</p>
+<pre><code class="language-ini">STORAGE_PROVIDER="s3-compatible"
+STORAGE_ENDPOINT="https://s3-cn-bj.ufileos.com"
+STORAGE_BUCKET_NAME="your-bucket"
+STORAGE_REGION="cn-bj"
+STORAGE_ACCESS_KEY_ID="your-access-key"
+STORAGE_SECRET_ACCESS_KEY="your-secret-key"
+STORAGE_PUBLIC_URL="https://your-storage-domain.example.com"</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

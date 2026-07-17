@@ -1,0 +1,7 @@
+{
+  "name": "nimbuild-docs",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-pages.mjs"
+  }
+}

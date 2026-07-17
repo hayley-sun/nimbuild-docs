@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>自定义指南 | NimBuild Docs</title>
+    <meta name="description" content="如何自定义定价、产品工作流、主题、语言和应用页面。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../customization.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link" href="quickstart.html">快速开始</a>
+<a class="nav-link" href="project-structure.html">项目结构</a>
+<a class="nav-link" href="development-standards.html">开发规范</a>
+<a class="nav-link" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="deployment.html">部署指南</a>
+<a class="nav-link active" href="customization.html">自定义指南</a>
+<a class="nav-link" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">指南</p>
+            <h1>自定义指南</h1>
+            <p>如何自定义定价、产品工作流、主题、语言和应用页面。</p>
+          </header>
+          <h2>修改产品和价格</h2>
+<p>编辑 <code>constants/billing.ts</code>。</p>
+<p>当前 starter 会从 <code>subscriptionTierConfigs</code> 生成四个订阅计划：Basic 月付、Basic 年付、Pro 月付和 Pro 年付。部署收款前，请把 Stripe Price ID 替换成你自己 Stripe Dashboard 中的 Price ID。</p>
+<pre><code class="language-typescript">const subscriptionTierConfigs = [
+  {
+    key: "basic",
+    plans: {
+      monthly: {
+        creditsPerCycle: 1000,
+        stripePriceId: "price_your_basic_monthly",
+      },
+      yearly: {
+        creditsPerCycle: 12000,
+        stripePriceId: "price_your_basic_yearly",
+        grantSchedule: {
+          mode: "installments",
+          grantsPerCycle: 12,
+          intervalMonths: 1,
+          creditsPerGrant: 1000,
+          initialGrants: 1,
+        },
+      },
+    },
+  },
+];</code></pre>
+<p>计划 key 会按 <code>${tierKey}_${billingCycle}</code> 派生。年付计划使用 <code>grantSchedule</code> 按月分期发放积分。</p>
+<h2>添加产品专属工作流</h2>
+<p>将产品专属工作流放在 <code>features/*</code> 下，并把服务端 provider 或计费逻辑保留在 <code>features/*/server</code>、<code>modules/*</code> 或 <code>extensions/*</code> 中。如果某个工作流需要先扣除积分再执行外部工作，请保留 <code>createCreditCompensation(...)</code> 失败退款模式。</p>
+<h2>添加博客文章</h2>
+<p>将博客源文件放在 <code>content/blog/&lt;slug&gt;/</code> 下。</p>
+<p>每篇文章应为每个支持的语言提供一个 MDX 文件，例如 <code>en.mdx</code> 和 <code>zh.mdx</code>，并导出 <code>blog</code> 元数据对象：</p>
+<pre><code class="language-mdx">export const blog = {
+  title: "文章标题",
+  description: "简短摘要",
+  author: {
+    name: "NimBuild",
+    src: "/logo.png",
+  },
+  date: "2026-05-26",
+};</code></pre>
+<p>新增、重命名或删除文章后，运行 <code>pnpm generate:blog-manifest</code>，让 <code>features/blog/blog-manifest.generated.ts</code> 与源文件保持一致。</p>
+<h2>添加新语言</h2>
+<ol><li>复制 <code>messages/en.json</code> 到 <code>messages/XX.json</code></li><li>复制 <code>messages/seo.en.json</code> 到 <code>messages/seo.XX.json</code></li><li>翻译两个文件</li><li>在 <code>i18n.config.ts</code> 中添加语言：</li></ol>
+<pre><code class="language-typescript">export const locales = ["en", "zh", "XX"] as const;</code></pre>
+<ol><li>在 <code>content/docs</code> 中添加对应的 docs MDX 文件，例如 <code>quickstart.XX.mdx</code></li><li>如果文档站也要暴露新语言，更新 <code>features/docs/localization.ts</code> 和 Fumadocs i18n 配置中的语言标签</li></ol>
+<p><code>proxy.ts</code> 和 <code>lib/i18n.ts</code> 都读取 <code>i18n.config.ts</code>，因此大多数语言路由会跟随这份共享配置。</p>
+<h2>自定义主题</h2>
+<p>颜色在 <code>app/globals.css</code> 中使用 CSS 自定义属性定义：</p>
+<pre><code class="language-css">:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  /* ... */
+}</code></pre>
+<p>深色模式变量在 <code>.dark</code> 类中。</p>
+<p>Fumadocs CSS 在 <code>app/[locale]/docs/layout.tsx</code> 中直接从 <code>fumadocs-ui/style.css</code> 导入，兼容当前项目的 Tailwind v4 配置。</p>
+<h2>添加新的受保护页面</h2>
+<ol><li>在 <code>app/[locale]/(protected)/your-page/page.tsx</code> 下创建页面</li><li>直接在该 <code>page.tsx</code> 中组合路由专属 UI，并按需使用 feature components</li><li>将服务端查询或变更放在对应的 <code>features/*/server</code> 模块中</li><li>在 <code>components/navigation/config.ts</code> 中添加导航 key</li><li>在 <code>messages/en.json</code> 和 <code>messages/zh.json</code> 中添加面向用户的文案</li></ol>
+<p>受保护布局会调用 <code>modules/auth</code> 中的 <code>getActiveSessionUser()</code>，因此这个 route group 下的页面需要登录用户。</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

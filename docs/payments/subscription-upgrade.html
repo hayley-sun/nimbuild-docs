@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subscription Upgrade Design | NimBuild Docs</title>
+    <meta name="description" content="Design for upgrading an active Basic monthly subscription to Pro monthly.">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">English</a>
+        <a href="../zh/payments/subscription-upgrade.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="../">Introduction</a>
+<a class="nav-link" href="../quickstart.html">Quickstart</a>
+<a class="nav-link" href="../project-structure.html">Project Structure</a>
+<a class="nav-link" href="../development-standards.html">Development Standards</a>
+<a class="nav-link" href="../environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="../auth/">Authentication Overview</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" open>
+    <summary>Payments</summary>
+    <a class="nav-link" href="./">Payments Overview</a>
+<a class="nav-link" href="credits.html">Credit System</a>
+<a class="nav-link" href="webhooks.html">Webhooks</a>
+<a class="nav-link active" href="subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="../email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="../admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="../deployment.html">Deployment</a>
+<a class="nav-link" href="../customization.html">Customization</a>
+<a class="nav-link" href="../troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Modules</p>
+            <h1>Subscription Upgrade Design</h1>
+            <p>Design for upgrading an active Basic monthly subscription to Pro monthly.</p>
+          </header>
+          <h2>Goal</h2>
+<p>When a user with an active <code>basic_monthly</code> subscription chooses <code>pro_monthly</code>, the system should update the existing Stripe subscription instead of creating a second subscription. The local billing, subscription, and credit records must remain consistent with Stripe.</p>
+<p>This design focuses on the first supported upgrade path:</p>
+<pre><code class="language-text">basic_monthly -&gt; pro_monthly</code></pre>
+<p>The same flow can later support other upgrades, such as yearly tier upgrades, once the credit rules are defined.</p>
+<h2>Current State</h2>
+<p>The repository already has the main entry points:</p>
+<ul><li>Pricing UI calls <code>POST /api/payments/stripe/checkout</code>.</li><li><code>app/api/payments/stripe/checkout/route.ts</code> checks for an active subscription.</li><li>If the active plan differs from the requested plan, it calls <code>updateSubscriptionPlan(...)</code>.</li><li><code>extensions/payment/stripe/index.ts</code> updates the existing Stripe subscription item.</li><li>Stripe webhooks are handled by <code>extensions/payment/stripe/webhook-service.ts</code>.</li><li>Payment, subscription, user plan, credit ledger, and credit buckets are written in <code>extensions/payment/stripe/webhook-accounting.ts</code>.</li></ul>
+<p>The risk is credit accounting. A Stripe subscription update can create a prorated upgrade invoice. If the webhook treats that invoice as a normal <code>pro_monthly</code> cycle, it can grant the full 5,000 Pro credits even though the user already received the 1,000 Basic credits for the current period.</p>
+<h2>Product Rule</h2>
+<p>For <code>basic_monthly -&gt; pro_monthly</code>:</p>
+<ul><li>Keep the same Stripe subscription.</li><li>Keep the current billing period anchor.</li><li>Charge the prorated price difference immediately.</li><li>Grant only the current-period credit difference immediately:</li></ul>
+<pre><code class="language-text">pro_monthly credits - basic_monthly credits = 5,000 - 1,000 = 4,000 credits</code></pre>
+<ul><li>On the next renewal invoice, grant the normal <code>pro_monthly</code> cycle amount: 5,000 credits.</li><li>Do not remove already granted Basic credits.</li><li>Do not create a second active subscription row.</li></ul>
+<h2>Stripe Update Behavior</h2>
+<p>Use Stripe Subscription Update on the existing subscription item:</p>
+<pre><code class="language-ts">await stripe.subscriptions.update(subscriptionId, {
+  items: [
+    {
+      id: subscriptionItemId,
+      price: subscriptionPlans.pro_monthly.stripePriceId,
+    },
+  ],
+  proration_behavior: "always_invoice",
+  billing_cycle_anchor: "unchanged",
+  metadata: {
+    userId,
+    key: "pro_monthly",
+    kind: "subscription",
+  },
+});</code></pre>
+<p>Do not include <code>payment_method_types</code>. Stripe should use the dashboard payment method configuration.</p>
+<p>Use an idempotency key when making the update:</p>
+<pre><code class="language-text">subscription-upgrade:{userId}:{subscriptionId}:basic_monthly:pro_monthly</code></pre>
+<p>The existing <code>STRIPE_SIMULATE="true"</code> branch should continue to return the success URL without calling Stripe.</p>
+<h2>Pending Upgrade Record</h2>
+<p>Add a small local table to make webhook accounting deterministic:</p>
+<pre><code class="language-text">subscription_plan_change</code></pre>
+<p>Suggested fields:</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+    <tbody><tr><td><code>id</code></td><td>Internal UUID.</td></tr><tr><td><code>provider</code></td><td><code>stripe</code>.</td></tr><tr><td><code>providerSubId</code></td><td>Stripe subscription id.</td></tr><tr><td><code>userId</code></td><td>Local Firebase uid.</td></tr><tr><td><code>fromPlanKey</code></td><td><code>basic_monthly</code>.</td></tr><tr><td><code>toPlanKey</code></td><td><code>pro_monthly</code>.</td></tr><tr><td><code>status</code></td><td><code>pending</code>, <code>applied</code>, <code>failed</code>, <code>canceled</code>.</td></tr><tr><td><code>creditDelta</code></td><td><code>4000</code>.</td></tr><tr><td><code>requestedAt</code></td><td>Time the user requested the upgrade.</td></tr><tr><td><code>appliedPaymentId</code></td><td>Stripe invoice payment id after success.</td></tr><tr><td><code>raw</code></td><td>Optional provider payload snapshot.</td></tr><tr><td><code>createdAt</code> / <code>updatedAt</code></td><td>Audit timestamps.</td></tr></tbody>
+  </table></div>
+<p>Create this record in the same server path that calls <code>updateSubscriptionPlan(...)</code>, before calling Stripe. If the Stripe API call fails, mark the record <code>failed</code>.</p>
+<p>This table prevents a prorated upgrade invoice from being mistaken for a full monthly renewal.</p>
+<h2>API Flow</h2>
+<ol><li>User clicks the <code>pro_monthly</code> pricing CTA.</li><li>Client calls:</li></ol>
+<pre><code class="language-http">POST /api/payments/stripe/checkout</code></pre>
+<pre><code class="language-json">{
+  "kind": "subscription",
+  "key": "pro_monthly"
+}</code></pre>
+<ol><li>Route loads the latest active subscription for the user.</li><li>If there is no active subscription, use the existing Checkout flow.</li><li>If the active subscription is already <code>pro_monthly</code>, return the success URL.</li><li>If the active subscription is <code>basic_monthly</code>, validate that this is an allowed upgrade.</li><li>Insert <code>subscription_plan_change</code> with <code>creditDelta = 4000</code>.</li><li>Update the Stripe subscription item to the Pro monthly price.</li><li>Return the success URL.</li></ol>
+<p>Expected response:</p>
+<pre><code class="language-json">{
+  "code": "OK",
+  "data": {
+    "url": "https://your-app.example/credits?success=1"
+  }
+}</code></pre>
+<h2>Webhook Flow</h2>
+<h3><code>customer.subscription.updated</code></h3>
+<p>Use this event to mark the subscription as active on the new plan:</p>
+<ul><li>Update <code>subscription.planKey</code> to <code>pro_monthly</code>.</li><li>Update <code>subscription.currentPeriodEnd</code>.</li><li>Update <code>user.planKey</code> to <code>pro_monthly</code>.</li><li>Do not grant credits from this event.</li></ul>
+<h3><code>invoice.paid</code></h3>
+<p>For each paid invoice:</p>
+<ol><li>Extract <code>subscriptionId</code>, <code>paymentId</code>, <code>userId</code>, and target plan metadata.</li><li>Check if there is a <code>pending</code> <code>subscription_plan_change</code> for the same <code>providerSubId</code>, <code>userId</code>, and <code>toPlanKey</code>.</li><li>If found:</li></ol>
+<ul><li>Insert a <code>payment</code> row for the prorated invoice.</li><li>Upsert the existing <code>subscription</code> row as <code>pro_monthly</code>.</li><li>Grant <code>creditDelta</code> credits using the existing subscription credit ledger path.</li><li>Mark the change as <code>applied</code>.</li><li>Store <code>appliedPaymentId</code>.</li></ul>
+<ol><li>If no pending change exists:</li></ol>
+<ul><li>Process the invoice as a normal subscription renewal.</li><li>Grant the full cycle amount from <code>constants/billing.ts</code>.</li></ul>
+<p>All local writes should happen in one database transaction.</p>
+<h2>Credit Accounting</h2>
+<p>For the upgrade invoice:</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Record</th><th>Value</th></tr></thead>
+    <tbody><tr><td><code>payment.type</code></td><td><code>subscription</code></td></tr><tr><td><code>payment.planKey</code></td><td><code>pro_monthly</code></td></tr><tr><td><code>payment.creditsGranted</code></td><td><code>4000</code></td></tr><tr><td><code>credit_ledger.reason</code></td><td><code>subscription_cycle</code></td></tr><tr><td><code>credit_balance_bucket.sourceType</code></td><td><code>subscription</code></td></tr><tr><td><code>credit_balance_bucket.expiresAt</code></td><td>Current subscription period end</td></tr><tr><td><code>user.credits</code></td><td>Incremented by <code>4000</code></td></tr></tbody>
+  </table></div>
+<p>For the next renewal invoice:</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Record</th><th>Value</th></tr></thead>
+    <tbody><tr><td><code>payment.planKey</code></td><td><code>pro_monthly</code></td></tr><tr><td><code>payment.creditsGranted</code></td><td><code>5000</code></td></tr><tr><td><code>credit_ledger.reason</code></td><td><code>subscription_cycle</code></td></tr></tbody>
+  </table></div>
+<p>This keeps <code>user.credits</code>, <code>credit_ledger</code>, <code>payment</code>, and <code>subscription</code> aligned.</p>
+<h2>UI Behavior</h2>
+<p>The pricing page can keep using the same CTA endpoint. It should present states based on the current plan:</p>
+<div class="table-wrap"><table>
+    <thead><tr><th>Current plan</th><th>Basic monthly button</th><th>Pro monthly button</th></tr></thead>
+    <tbody><tr><td>Free / no user</td><td>Buy / sign in</td><td>Buy / sign in</td></tr><tr><td><code>basic_monthly</code></td><td>Current plan</td><td>Upgrade</td></tr><tr><td><code>pro_monthly</code></td><td>Disabled lower tier</td><td>Current plan</td></tr></tbody>
+  </table></div>
+<p>For the first implementation, downgrade and cross-cycle changes should remain disabled or unsupported unless explicit product rules are added.</p>
+<h2>Validation Rules</h2>
+<p>The backend should reject unsupported changes:</p>
+<ul><li>No active subscription and requested key is valid: use Checkout.</li><li>Active <code>basic_monthly</code> and requested <code>pro_monthly</code>: upgrade.</li><li>Active plan equals requested plan: return success URL.</li><li>Active <code>pro_monthly</code> and requested <code>basic_monthly</code>: reject or direct to a future downgrade flow.</li><li>Monthly to yearly or yearly to monthly: reject until rules are defined.</li><li>Unknown plan key: return <code>ApiCode.INVALID_SUBSCRIPTION_KEY</code>.</li></ul>
+<p>Add an explicit helper such as:</p>
+<pre><code class="language-ts">isSupportedSubscriptionUpgrade(fromPlanKey, toPlanKey)</code></pre>
+<h2>Failure Handling</h2>
+<ul><li>If Stripe update fails, mark the pending change as <code>failed</code> and do not change local <code>user.planKey</code>.</li><li>If <code>invoice.paid</code> is duplicated, the existing <code>payment.providerPaymentId</code> idempotency check must prevent duplicate credit grants.</li><li>If <code>customer.subscription.updated</code> arrives before <code>invoice.paid</code>, update the visible plan but do not grant credits until the paid invoice arrives.</li><li>If payment fails, do not grant credits. Keep the pending change <code>pending</code> until a successful invoice arrives or a cleanup job marks it <code>failed</code>.</li></ul>
+<h2>Tests</h2>
+<p>Add focused tests for:</p>
+<ul><li>Checkout route creates a pending upgrade record for <code>basic_monthly -&gt; pro_monthly</code>.</li><li>Checkout route rejects <code>pro_monthly -&gt; basic_monthly</code>.</li><li>Stripe update uses the existing subscription item, Pro price id, <code>always_invoice</code>, and unchanged billing anchor.</li><li><code>customer.subscription.updated</code> updates plan state without granting credits.</li><li><code>invoice.paid</code> with a pending upgrade grants exactly <code>4000</code> credits.</li><li>Duplicate <code>invoice.paid</code> does not grant duplicate credits.</li><li>Normal Pro renewal after the upgrade grants <code>5000</code> credits.</li></ul>
+<p>Run:</p>
+<pre><code class="language-bash">pnpm test tests/app/api/payments/stripe/checkout/route.test.ts tests/extensions/payment/stripe/webhook-service.test.ts tests/extensions/payment/stripe/webhook-accounting.test.ts
+pnpm lint</code></pre>
+<p>Run <code>pnpm db:generate</code> after adding the new table.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

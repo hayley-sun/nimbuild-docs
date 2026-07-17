@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>项目结构 | NimBuild Docs</title>
+    <meta name="description" content="代码库布局和关键目录概览。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../project-structure.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link" href="quickstart.html">快速开始</a>
+<a class="nav-link active" href="project-structure.html">项目结构</a>
+<a class="nav-link" href="development-standards.html">开发规范</a>
+<a class="nav-link" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="deployment.html">部署指南</a>
+<a class="nav-link" href="customization.html">自定义指南</a>
+<a class="nav-link" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">文档</p>
+            <h1>项目结构</h1>
+            <p>代码库布局和关键目录概览。</p>
+          </header>
+          <h2>目录概览</h2>
+<pre><code>├── app/[locale]/              # 使用 next-intl 语言段的 Next.js App Router 路由
+│   ├── (marketing)/           # 首页、定价、博客和法律页面
+│   ├── (protected)/           # 登录后页面：设置和积分
+│   ├── (admin)/admin/         # 管理后台、用户、订阅和积分账本
+│   ├── (tools)/tools/         # 登录后 AI 工具工作区页面
+│   └── docs/                  # Fumadocs 文档路由
+├── app/api/                   # Route Handlers
+│   ├── auth/                  # Firebase session API
+│   ├── payments/stripe/        # Stripe checkout、webhook 和重定向 fallback
+│   ├── upload/                # 用户上传端点
+│   ├── admin/                 # 管理员变更 API
+│   ├── user/                  # 用户资料、积分和管理员状态 API
+│   └── cron/                  # 订阅积分发放和积分过期定时任务
+├── features/                  # 产品功能模块
+│   ├── admin/                 # 管理后台 UI、actions、服务端查询和变更
+│   ├── ai-tools/              # AI 工具 actions、UI、历史记录和服务端工作流
+│   ├── auth/                  # 全局登录弹窗、认证 UI 和 Firebase session 辅助逻辑
+│   ├── blog/                  # Blog source loader 和 blog 专属组件
+│   ├── docs/                  # Fumadocs source、metadata、i18n 和布局辅助逻辑
+│   ├── landing/               # 营销页区块
+│   └── user-console/          # 设置、积分页面、用户资料 API 支撑和查询
+├── modules/                   # 可复用领域模块
+│   ├── analytics/             # 分析组件组合入口
+│   ├── ai-tools/              # 共享 AI 工具 schema 和类型化 payload
+│   ├── auth/                  # Firebase session、用户同步和管理员授权
+│   ├── billing/               # 计费展示和订阅积分发放计划辅助逻辑
+│   ├── client-api/            # 与浏览器客户端共享的 DTO
+│   ├── credits/               # 积分账本变更和失败补偿退款
+│   ├── upload/                # 用户文件和图片上传服务端逻辑
+│   └── db/                    # Drizzle 客户端和 schema
+├── extensions/                # 第三方适配器
+│   ├── analytics/google/      # Google Analytics 组件
+│   ├── ai/volcengine/         # 火山引擎 OpenAI-compatible AI provider adapter
+│   ├── auth/firebase/         # Firebase client/admin SDK 适配器
+│   ├── email/                 # 隐藏 provider 的邮件封装、模板和适配器
+│   ├── payment/stripe/         # Stripe checkout 和 webhook 入账逻辑
+│   └── storage/               # 隐藏 provider 的存储门面，包含 R2 和 S3 兼容适配器
+├── components/                # 全局 UI：品牌、布局、共享内容辅助组件和基础组件
+├── constants/                 # 计费和网站配置
+├── content/blog/              # 博客源内容（MDX）
+├── content/docs/              # 文档源内容（MDX）
+├── messages/                  # UI 和 SEO 翻译（en、zh）
+├── public/                    # 公共图片、logos、robots.txt 和生成的 docs CSS
+├── scripts/                   # 本地维护和生成脚本
+└── drizzle/                   # Drizzle 迁移文件</code></pre>
+<h2>路由分组</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>分组</th><th>路径</th><th>访问权限</th><th>用途</th></tr></thead>
+    <tbody><tr><td><code>(marketing)</code></td><td><code>/</code>、<code>/pricing</code>、<code>/blog</code>、法律页面</td><td>公开</td><td>营销和 SEO 页面</td></tr><tr><td><code>(protected)</code></td><td><code>/credits</code>、<code>/settings</code></td><td>需要登录</td><td>用户控制台</td></tr><tr><td><code>(tools)</code></td><td><code>/tools</code>、<code>/tools/xiaohongshu</code></td><td>需要登录</td><td>AI 工具工作区</td></tr><tr><td><code>(admin)</code></td><td><code>/admin</code>、<code>/admin/users</code>、<code>/admin/subscriptions</code>、<code>/admin/credits</code></td><td>管理员</td><td>管理面板</td></tr><tr><td><code>docs</code></td><td><code>/docs/*</code>、<code>/zh/docs/*</code></td><td>公开</td><td>文档</td></tr></tbody>
+  </table></div>
+<h2>边界规则</h2>
+<ul><li>App 路由保持轻量：解析参数或请求体，然后调用 feature/server 或 module 代码。</li><li>Client Components 可以导入 feature actions、feature UI、共享组件、共享类型和客户端安全的辅助函数。</li><li>Client Components 不应导入 <code>features/*/server</code>、<code>modules/db</code>、<code>modules/credits</code>、提供商适配器、支付适配器、邮件适配器或存储适配器。</li><li>后端模块不应导入 React 组件。</li><li>API route 应使用 <code>defineApiHandler(...)</code>，并且必须在 <code>modules/auth/api-policy.ts</code> 中声明，除非该 route 明确需要自定义协议处理。</li><li>这些边界由 <code>eslint.config.mjs</code> 强制执行；新增模块或例外前请先阅读<a href="development-standards.html">开发规范</a>。</li></ul>
+<h2>关键文件</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>文件</th><th>用途</th></tr></thead>
+    <tbody><tr><td><code>extensions/auth/firebase/client.ts</code></td><td>浏览器侧 Firebase 初始化</td></tr><tr><td><code>extensions/auth/firebase/admin.ts</code></td><td>Firebase provider adapter 使用的底层 Firebase Admin 初始化</td></tr><tr><td><code>extensions/auth/firebase/provider.ts</code></td><td>auth provider 接口的 Firebase 实现</td></tr><tr><td><code>modules/auth/client.ts</code></td><td>浏览器侧 Firebase Google 登录和会话辅助函数</td></tr><tr><td><code>modules/auth/action-handler.ts</code></td><td>Server Action 的标准 wrapper，统一 user/admin 鉴权</td></tr><tr><td><code>modules/auth/access-cache.ts</code></td><td>本地 auth access 字段的可替换缓存 store</td></tr><tr><td><code>modules/auth/provider.ts</code></td><td>应用侧 auth provider 接口和当前 provider 绑定</td></tr><tr><td><code>modules/auth/api-handler.ts</code></td><td>API route 的标准 wrapper，统一鉴权、locale 和错误响应</td></tr><tr><td><code>modules/auth/api-policy.ts</code></td><td>每个 <code>app/api</code> route 的显式鉴权策略清单</td></tr><tr><td><code>modules/auth/session.ts</code></td><td>Session cookie 解析、本地 access cache 和缓存失效</td></tr><tr><td><code>modules/auth/user-sync.ts</code></td><td>Provider 身份到本地用户的同步逻辑</td></tr><tr><td><code>modules/auth/index.ts</code></td><td>服务端认证、会话和管理员导出</td></tr><tr><td><code>modules/db/schema.ts</code></td><td>Drizzle schema 的事实来源</td></tr><tr><td><code>modules/ai-tools/xiaohongshu.ts</code></td><td>小红书文案生成器的共享输入/输出 schema</td></tr><tr><td><code>modules/credits/ledger.ts</code></td><td>积分余额和账本变更</td></tr><tr><td><code>modules/credits/compensation.ts</code></td><td>失败后退款补偿辅助逻辑</td></tr><tr><td><code>modules/upload/file.ts</code></td><td>用户文件和图片上传验证和存储写入</td></tr><tr><td><code>constants/billing.ts</code></td><td>订阅计划 key、价格、积分额度和 Stripe Price ID</td></tr><tr><td><code>extensions/analytics/google/</code></td><td>Google Analytics 集成</td></tr><tr><td><code>extensions/ai/volcengine/</code></td><td>AI 工具生成使用的火山引擎 provider adapter</td></tr><tr><td><code>extensions/payment/stripe/</code></td><td>Stripe checkout、签名验证、webhook service 和入账逻辑</td></tr><tr><td><code>extensions/storage/</code></td><td>隐藏 provider 的存储门面，包含 Cloudflare R2 和 S3 兼容适配器</td></tr><tr><td><code>features/auth/components/auth-modal-provider.tsx</code></td><td>全局 Google 登录弹窗和 <code>?auth=login</code> 处理</td></tr><tr><td><code>lib/client-api/use-api-fetch.ts</code></td><td>浏览器 API fetch hook，统一 locale header 和标准错误 toast</td></tr><tr><td><code>features/blog/source.ts</code></td><td>读取 <code>content/blog</code> MDX 文章的 blog manifest loader</td></tr><tr><td><code>features/blog/components/</code></td><td>Blog card 和 blog layout 组件</td></tr><tr><td><code>features/docs/source.ts</code></td><td>读取生成的 <code>.source/server</code> 输出的 Fumadocs loader</td></tr><tr><td><code>source.config.ts</code></td><td>Fumadocs MDX 源配置</td></tr><tr><td><code>proxy.ts</code></td><td>用于语言路由的 Next.js proxy</td></tr><tr><td><code>i18n.config.ts</code></td><td>语言区域配置</td></tr></tbody>
+  </table></div>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

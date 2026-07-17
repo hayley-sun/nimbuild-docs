@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>部署指南 | NimBuild Docs</title>
+    <meta name="description" content="将 NimBuild Starter 应用部署到生产环境。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../deployment.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link" href="quickstart.html">快速开始</a>
+<a class="nav-link" href="project-structure.html">项目结构</a>
+<a class="nav-link" href="development-standards.html">开发规范</a>
+<a class="nav-link" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link active" href="deployment.html">部署指南</a>
+<a class="nav-link" href="customization.html">自定义指南</a>
+<a class="nav-link" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">指南</p>
+            <h1>部署指南</h1>
+            <p>将 NimBuild Starter 应用部署到生产环境。</p>
+          </header>
+          <h2>前提条件</h2>
+<p>部署前确保你有：</p>
+<ul><li>PostgreSQL 数据库</li><li>Stripe 账号和 API Key</li><li>Resend API Key 和已验证发送域名</li><li>Firebase 项目和 service account 凭据</li><li>AI 工具使用的火山引擎 API 凭据</li><li>（可选）Cloudflare R2 或 S3 兼容存储</li></ul>
+<h2>部署</h2>
+<h3>1. 数据库迁移</h3>
+<p>首次部署后：</p>
+<pre><code class="language-bash">pnpm db:push</code></pre>
+<h3>2. 配置 Webhook</h3>
+<p>在 Stripe Dashboard 中设置 webhook URL：</p>
+<pre><code>https://your-domain.com/api/payments/stripe/webhook</code></pre>
+<h3>3. 设置定时任务</h3>
+<p>用于年付订阅积分发放，配置每小时调用：</p>
+<pre><code class="language-bash">curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-domain.com/api/cron/subscription-grants</code></pre>
+<p>用于处理过期积分 bucket，再配置第二个定时任务：</p>
+<pre><code class="language-bash">curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
+  https://your-domain.com/api/cron/credit-expiry</code></pre>
+<h3>4. 创建管理员账户</h3>
+<pre><code class="language-bash">ADMIN_EMAIL=admin@example.com pnpm admin:setup</code></pre>
+<h3>5. 验证环境</h3>
+<p>确保生产环境 <code>.env</code> 的以下值正确：</p>
+<ul><li><code>NEXT_PUBLIC_APP_URL</code> — 实际域名</li><li><code>NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN</code> — Firebase Auth 域名</li><li><code>FIREBASE_CLIENT_EMAIL</code> 和 <code>FIREBASE_PRIVATE_KEY</code> — Firebase Admin service account 凭据</li><li><code>RESEND_API_KEY</code> — Resend API Key</li><li><code>RESEND_FROM_EMAIL</code> — 交易邮件使用的已验证发件地址</li><li><code>RESEND_REPLY_TO</code> — 可选默认回复地址</li><li><code>VOLCENGINE_API_KEY</code>、<code>VOLCENGINE_BASE_URL</code> 和 <code>VOLCENGINE_MODEL</code> — AI 工具 provider 配置</li><li><code>CRON_SECRET</code> 或 <code>CRON_JOBS_USERNAME</code> + <code>CRON_JOBS_PASSWORD</code> — 定时任务鉴权</li></ul>
+<h2>部署后检查清单</h2>
+<ul><li><label class="task"><input type="checkbox" disabled> 数据库已迁移</label></li><li><label class="task"><input type="checkbox" disabled> Stripe 中已配置 Webhook URL</label></li><li><label class="task"><input type="checkbox" disabled> 订阅积分发放和积分过期定时任务已设置</label></li><li><label class="task"><input type="checkbox" disabled> 管理员账户已创建</label></li><li><label class="task"><input type="checkbox" disabled> 生产邮件使用的 Resend 发送域名已验证</label></li><li><label class="task"><input type="checkbox" disabled> Firebase authorized domains 已包含生产域名</label></li><li><label class="task"><input type="checkbox" disabled> 火山引擎 AI provider 凭据已配置</label></li><li><label class="task"><input type="checkbox" disabled> 如使用分析工具，其 Key 已配置</label></li></ul>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

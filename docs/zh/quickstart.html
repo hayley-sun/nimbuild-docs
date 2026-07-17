@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>快速开始 | NimBuild Docs</title>
+    <meta name="description" content="几分钟内启动你的 NimBuild Starter 项目。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../quickstart.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link active" href="quickstart.html">快速开始</a>
+<a class="nav-link" href="project-structure.html">项目结构</a>
+<a class="nav-link" href="development-standards.html">开发规范</a>
+<a class="nav-link" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="deployment.html">部署指南</a>
+<a class="nav-link" href="customization.html">自定义指南</a>
+<a class="nav-link" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">文档</p>
+            <h1>快速开始</h1>
+            <p>几分钟内启动你的 NimBuild Starter 项目。</p>
+          </header>
+          <h2>前提条件</h2>
+<h3>1. Node.js</h3>
+<p>Node.js 用于运行 Next.js 开发服务器、本地构建脚本和项目工具链。</p>
+<pre><code class="language-bash"># 检查是否已安装 Node.js
+node --version</code></pre>
+<h3>2. pnpm</h3>
+<p>项目使用 <code>pnpm</code> 作为包管理器，当前仓库锁定的是 <code>pnpm 10</code>。</p>
+<pre><code class="language-bash"># 安装 pnpm
+npm install -g pnpm
+
+# 检查 pnpm 版本
+pnpm --version</code></pre>
+<h3>3. PostgreSQL 连接信息</h3>
+<p>PostgreSQL 数据库</p>
+<h2>安装步骤</h2>
+<h3>1. 获取项目代码</h3>
+<pre><code class="language-bash">git clone clone git@github.com:hayley-sun/nimbuild-to-production.git
+cd nimbuild-to-production</code></pre>
+<h3>2. 安装依赖</h3>
+<pre><code class="language-bash">pnpm install</code></pre>
+<h3>3. 配置环境变量</h3>
+<p>把示例环境文件复制成本地环境文件：</p>
+<pre><code class="language-bash">cp .env.example .env.local</code></pre>
+<p>然后编辑 <code>.env.local</code>，填入你的配置。</p>
+<p>最少需要以下配置：</p>
+<pre><code class="language-ini">DATABASE_URL="postgresql://user:password@host/db?sslmode=require"
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"</code></pre>
+<p>完整列表请查看<a href="environment.html">环境变量</a>。</p>
+<h3>4. 初始化数据库</h3>
+<pre><code class="language-bash">pnpm db:push</code></pre>
+<p>生产环境建议使用迁移：</p>
+<pre><code class="language-bash">pnpm db:generate
+pnpm db:migrate</code></pre>
+<h3>5. 启动开发服务器</h3>
+<pre><code class="language-bash">pnpm dev</code></pre>
+<p>访问 <code>http://localhost:3000</code>，先用你要设为管理员的 Google 账号登录。</p>
+<h3>6. 将账号提升为管理员</h3>
+<pre><code class="language-bash">ADMIN_EMAIL=admin@example.com pnpm admin:setup</code></pre>
+<h2>下一步</h2>
+<ul><li><a href="project-structure.html">项目结构</a> — 了解代码布局</li><li><a href="auth/">认证系统</a> — 配置 Firebase Google 登录</li><li><a href="payments/">支付系统</a> — 设置计费和订阅</li><li><a href="customization.html">自定义指南</a> — 添加产品专属工作流</li></ul>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

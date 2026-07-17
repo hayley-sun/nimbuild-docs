@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>积分系统 | NimBuild Docs</title>
+    <meta name="description" content="基于积分的计费系统工作原理。">
+    <link rel="stylesheet" href="../../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="../">中文</a>
+        <a href="../../payments/credits.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="../">简介</a>
+<a class="nav-link" href="../quickstart.html">快速开始</a>
+<a class="nav-link" href="../project-structure.html">项目结构</a>
+<a class="nav-link" href="../development-standards.html">开发规范</a>
+<a class="nav-link" href="../environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="../auth/">认证系统概览</a>
+<a class="nav-link" href="../auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" open>
+    <summary>支付</summary>
+    <a class="nav-link" href="./">支付系统概览</a>
+<a class="nav-link active" href="credits.html">积分系统</a>
+<a class="nav-link" href="webhooks.html">Webhooks</a>
+<a class="nav-link" href="subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="../email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="../admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="../deployment.html">部署指南</a>
+<a class="nav-link" href="../customization.html">自定义指南</a>
+<a class="nav-link" href="../troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">模块</p>
+            <h1>积分系统</h1>
+            <p>基于积分的计费系统工作原理。</p>
+          </header>
+          <h2>架构</h2>
+<p>积分系统使用<strong>双写模式</strong>进行余额跟踪：</p>
+<ul><li><code>user.credits</code> — 快速访问的当前余额</li><li><code>creditBalanceBucket</code> / <code>credit_balance_bucket</code> — 可消费积分 bucket，包含来源、剩余数量、优先级和可选过期时间</li><li><code>creditLedger</code> / <code>credit_ledger</code> — 不可变的积分变动审计记录</li></ul>
+<p>每次赠送、扣除、退款或过期都会在同一个数据库事务中更新这些记录。扣除积分时会优先消费未过期且更早过期的 bucket，并写入对应的负数账本记录。</p>
+<h2>核心 API</h2>
+<p>积分余额和账本变更位于 <code>modules/credits/ledger.ts</code>，并从 <code>modules/credits</code> 导出：</p>
+<pre><code class="language-typescript">const credits = await getUserCredits(userId);
+const canAfford = await canUserAfford(userId, creditsNeeded);
+
+await deductCredits(userId, creditsNeeded, 'credit_adjustment', referenceId);
+await refundCredits(userId, creditsNeeded, 'credit_adjustment_refund', referenceId);</code></pre>
+<h2>积分来源</h2>
+<div class="table-wrap"><table>
+    <thead><tr><th>来源</th><th>触发条件</th><th>数量</th></tr></thead>
+    <tbody><tr><td>注册奖励</td><td>新 Firebase 用户同步</td><td>2,000 积分</td></tr><tr><td>每日登录奖励</td><td>每个 Asia/Shanghai 自然日首次成功登录</td><td>200 积分，次日 00:00 失效</td></tr><tr><td>订阅</td><td>Webhook / 定时任务</td><td>按计划配置</td></tr><tr><td>管理员调整</td><td>通过管理后台手动操作</td><td>自定义</td></tr></tbody>
+  </table></div>
+<h2>积分过期</h2>
+<p>每日登录奖励这类会过期的积分会写入 <code>creditBalanceBucket.expiresAt</code> / <code>credit_balance_bucket.expires_at</code>。<code>/api/cron/credit-expiry</code> route 会处理已过期 bucket，从 <code>user.credits</code> 扣除剩余数量，并写入 <code>credit_expired</code> 账本记录。</p>
+<p>这个 route 应该用和订阅积分发放相同的 <code>CRON_SECRET</code> 或 basic auth 凭据定期调用。</p>
+<h2>账本原因</h2>
+<p>每条 <code>creditLedger</code> / <code>credit_ledger</code> 记录都有 <code>reason</code> 字段。常见原因包括：</p>
+<ul><li><code>registration_bonus</code> — 首次 Firebase 用户同步赠送</li><li><code>daily_grant</code> — 每日登录积分，次日 00:00 失效</li><li><code>subscription_cycle</code> — 订阅发放</li><li><code>subscription_schedule</code> — 订阅分期发放</li><li><code>adjustment</code> — 管理员手动调整</li><li><code>refund</code> — 通用退款</li><li><code>credit_expired</code> — bucket 中剩余积分过期</li><li><code>ai_generation</code> / <code>ai_generation_refund</code> — AI 工具消耗和 provider 失败退款</li></ul>
+<p>添加产品特定的积分消耗时，请使用明确的 reason 名称，保证管理员和用户历史记录可审计。</p>
+<h2>积分补偿</h2>
+<p>如果某个操作需要先扣除积分、再执行外部工作，请使用 <code>createCreditCompensation(...)</code>，这样外部工作失败时可以自动退款。</p>
+<pre><code class="language-typescript">const compensation = createCreditCompensation({
+  userId,
+  amount: creditsNeeded,
+  reason: 'credit_adjustment_refund',
+  referenceId,
+});
+
+try {
+  await doExternalWork();
+  compensation.settle();
+} catch (error) {
+  await compensation.compensate();
+  throw error;
+}</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

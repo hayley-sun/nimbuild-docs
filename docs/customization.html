@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Customization | NimBuild Docs</title>
+    <meta name="description" content="How to customize pricing, product workflows, theme, locales, and app pages.">
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">English</a>
+        <a href="zh/customization.html">中文</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>Documentation</h2>
+        <a class="nav-link" href="./">Introduction</a>
+<a class="nav-link" href="quickstart.html">Quickstart</a>
+<a class="nav-link" href="project-structure.html">Project Structure</a>
+<a class="nav-link" href="development-standards.html">Development Standards</a>
+<a class="nav-link" href="environment.html">Environment Variables</a>
+      </section>
+<section class="nav-section">
+        <h2>Modules</h2>
+        <details class="nav-group" >
+    <summary>Authentication</summary>
+    <a class="nav-link" href="auth/">Authentication Overview</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google Sign-In</a>
+  </details>
+<details class="nav-group" >
+    <summary>Payments</summary>
+    <a class="nav-link" href="payments/">Payments Overview</a>
+<a class="nav-link" href="payments/credits.html">Credit System</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">Subscription Upgrade Design</a>
+  </details>
+<details class="nav-group" >
+    <summary>Email</summary>
+    <a class="nav-link" href="email/">Email System</a>
+  </details>
+<details class="nav-group" >
+    <summary>Admin</summary>
+    <a class="nav-link" href="admin/">Admin Dashboard</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>Guides</h2>
+        <a class="nav-link" href="deployment.html">Deployment</a>
+<a class="nav-link active" href="customization.html">Customization</a>
+<a class="nav-link" href="troubleshooting.html">Troubleshooting</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">Guides</p>
+            <h1>Customization</h1>
+            <p>How to customize pricing, product workflows, theme, locales, and app pages.</p>
+          </header>
+          <h2>Modify Products and Pricing</h2>
+<p>Edit <code>constants/billing.ts</code>.</p>
+<p>The starter ships with four subscription plans generated from <code>subscriptionTierConfigs</code>: Basic monthly, Basic yearly, Pro monthly, and Pro yearly. Replace the Stripe Price IDs with IDs from your own Dashboard before accepting payments.</p>
+<pre><code class="language-typescript">const subscriptionTierConfigs = [
+  {
+    key: "basic",
+    plans: {
+      monthly: {
+        creditsPerCycle: 1000,
+        stripePriceId: "price_your_basic_monthly",
+      },
+      yearly: {
+        creditsPerCycle: 12000,
+        stripePriceId: "price_your_basic_yearly",
+        grantSchedule: {
+          mode: "installments",
+          grantsPerCycle: 12,
+          intervalMonths: 1,
+          creditsPerGrant: 1000,
+          initialGrants: 1,
+        },
+      },
+    },
+  },
+];</code></pre>
+<p>Plan keys are derived as <code>${tierKey}_${billingCycle}</code>. Annual plans use <code>grantSchedule</code> for monthly installment credit grants.</p>
+<h2>Add Product-Specific Workflows</h2>
+<p>Add product-specific workflows under <code>features/*</code> and keep server-only provider or billing logic inside <code>features/*/server</code>, <code>modules/*</code>, or <code>extensions/*</code>. If a workflow spends credits before external work completes, preserve the <code>createCreditCompensation(...)</code> refund pattern.</p>
+<h2>Add Blog Posts</h2>
+<p>Add blog source files under <code>content/blog/&lt;slug&gt;/</code>.</p>
+<p>Each post should provide one MDX file per supported locale, such as <code>en.mdx</code> and <code>zh.mdx</code>, and export a <code>blog</code> metadata object:</p>
+<pre><code class="language-mdx">export const blog = {
+  title: "Post title",
+  description: "Short summary",
+  author: {
+    name: "NimBuild",
+    src: "/logo.png",
+  },
+  date: "2026-05-26",
+};</code></pre>
+<p>After adding, renaming, or removing posts, run <code>pnpm generate:blog-manifest</code> so <code>features/blog/blog-manifest.generated.ts</code> matches the source files.</p>
+<h2>Add a New Language</h2>
+<ol><li>Copy <code>messages/en.json</code> to <code>messages/XX.json</code></li><li>Copy <code>messages/seo.en.json</code> to <code>messages/seo.XX.json</code></li><li>Translate both files</li><li>Add the locale to <code>i18n.config.ts</code></li></ol>
+<pre><code class="language-typescript">export const locales = ["en", "zh", "XX"] as const;</code></pre>
+<ol><li>Add matching docs MDX files in <code>content/docs</code>, such as <code>quickstart.XX.mdx</code></li><li>Update docs locale labels in <code>features/docs/localization.ts</code> and Fumadocs i18n if the docs site should expose the new locale</li></ol>
+<p><code>proxy.ts</code> and <code>lib/i18n.ts</code> read from <code>i18n.config.ts</code>, so most locale routing follows that shared config.</p>
+<h2>Customize Theme</h2>
+<p>Colors are defined in <code>app/globals.css</code> using CSS custom properties:</p>
+<pre><code class="language-css">:root {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  /* ... */
+}</code></pre>
+<p>Dark mode variables are in the <code>.dark</code> class.</p>
+<p>Fumadocs CSS is imported directly in <code>app/[locale]/docs/layout.tsx</code> from <code>fumadocs-ui/style.css</code>, which is compatible with the project's Tailwind v4 setup.</p>
+<h2>Add New Protected Pages</h2>
+<ol><li>Create a page under <code>app/[locale]/(protected)/your-page/page.tsx</code></li><li>Compose route-specific UI directly in that <code>page.tsx</code>, using feature components as needed</li><li>Put server queries or mutations in the matching <code>features/*/server</code> module</li><li>Add navigation keys in <code>components/navigation/config.ts</code></li><li>Add user-facing labels in both <code>messages/en.json</code> and <code>messages/zh.json</code></li></ol>
+<p>The protected layout calls <code>getActiveSessionUser()</code> from <code>modules/auth</code>, so pages in this route group require an authenticated user.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

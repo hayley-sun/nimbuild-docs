@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>环境变量 | NimBuild Docs</title>
+    <meta name="description" content="所有环境变量的完整参考。">
+    <link rel="stylesheet" href="../assets/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="NimBuild Docs home">
+        <span class="brand-mark">N</span>
+        <span>NimBuild Docs</span>
+      </a>
+      <nav class="top-actions" aria-label="Utility navigation">
+        <a href="./">中文</a>
+        <a href="../environment.html">English</a>
+        <a href="https://github.com/hayley-sun/nimbuild-docs">GitHub</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        <section class="nav-section">
+        <h2>文档</h2>
+        <a class="nav-link" href="./">简介</a>
+<a class="nav-link" href="quickstart.html">快速开始</a>
+<a class="nav-link" href="project-structure.html">项目结构</a>
+<a class="nav-link" href="development-standards.html">开发规范</a>
+<a class="nav-link active" href="environment.html">环境变量</a>
+      </section>
+<section class="nav-section">
+        <h2>模块</h2>
+        <details class="nav-group" >
+    <summary>认证</summary>
+    <a class="nav-link" href="auth/">认证系统概览</a>
+<a class="nav-link" href="auth/providers.html">Firebase Google 登录</a>
+  </details>
+<details class="nav-group" >
+    <summary>支付</summary>
+    <a class="nav-link" href="payments/">支付系统概览</a>
+<a class="nav-link" href="payments/credits.html">积分系统</a>
+<a class="nav-link" href="payments/webhooks.html">Webhooks</a>
+<a class="nav-link" href="payments/subscription-upgrade.html">订阅升级设计</a>
+  </details>
+<details class="nav-group" >
+    <summary>邮件</summary>
+    <a class="nav-link" href="email/">邮件系统</a>
+  </details>
+<details class="nav-group" >
+    <summary>管理后台</summary>
+    <a class="nav-link" href="admin/">管理后台</a>
+  </details>
+      </section>
+<section class="nav-section">
+        <h2>指南</h2>
+        <a class="nav-link" href="deployment.html">部署指南</a>
+<a class="nav-link" href="customization.html">自定义指南</a>
+<a class="nav-link" href="troubleshooting.html">故障排查</a>
+      </section>
+      </aside>
+      <main class="content">
+        <article class="doc">
+          <header class="doc-header">
+            <p class="eyebrow">文档</p>
+            <h1>环境变量</h1>
+            <p>所有环境变量的完整参考。</p>
+          </header>
+          <h2>必需变量</h2>
+<h3>数据库</h3>
+<pre><code class="language-ini">DATABASE_URL="postgresql://user:password@host/db?sslmode=require"</code></pre>
+<h3>认证</h3>
+<pre><code class="language-ini">NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-firebase-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your-firebase-app-id"
+FIREBASE_PROJECT_ID="your-firebase-project-id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"</code></pre>
+<h3>应用 URL</h3>
+<pre><code class="language-ini">NEXT_PUBLIC_APP_URL="http://localhost:3000"</code></pre>
+<h2>服务集成</h2>
+<h3>Stripe（支付）</h3>
+<p>Stripe 订阅 checkout 和 webhook 处理必需：</p>
+<pre><code class="language-ini">STRIPE_SECRET_KEY="your-stripe-api-key"
+STRIPE_WEBHOOK_SECRET="whsec_..."</code></pre>
+<p>测试模式（跳过真实支付）：</p>
+<pre><code class="language-ini">STRIPE_SIMULATE="true"</code></pre>
+<h3>Resend（邮件）</h3>
+<p>购买确认邮件必需：</p>
+<pre><code class="language-ini">RESEND_API_KEY="re_..."
+RESEND_FROM_EMAIL="NimBuild &lt;onboarding@resend.dev&gt;"
+RESEND_REPLY_TO="support@example.com"</code></pre>
+<h3>火山引擎（AI 工具）</h3>
+<p>AI 工具中心和小红书文案生成必需：</p>
+<pre><code class="language-ini">VOLCENGINE_API_KEY="your-volcengine-api-key"
+VOLCENGINE_BASE_URL="https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+VOLCENGINE_MODEL="your-volcengine-model-id"</code></pre>
+<h3>定时任务</h3>
+<p>使用 bearer token 认证：</p>
+<pre><code class="language-ini">CRON_SECRET="your-cron-secret"</code></pre>
+<p>或使用 basic auth：</p>
+<pre><code class="language-ini">CRON_JOBS_USERNAME="your_username"
+CRON_JOBS_PASSWORD="your_password"</code></pre>
+<h2>可选分析工具</h2>
+<pre><code class="language-ini">NEXT_PUBLIC_GOOGLE_ANALYTICS_ID="G-..."
+NEXT_PUBLIC_ANALYTICS_ENABLE_IN_DEVELOPMENT="false"</code></pre>
+<h2>可选 Cloudflare Turnstile</h2>
+<p>登录/注册弹窗会用它在显示 Google 登录按钮前检查访客风险。配置以下两个值即可启用：</p>
+<pre><code class="language-ini">NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY="your-turnstile-site-key"
+CLOUDFLARE_TURNSTILE_SECRET_KEY="your-turnstile-secret-key"</code></pre>
+<p>任一值缺失时，Turnstile 会关闭，Google 登录按钮会直接显示。</p>
+<h2>可选存储（Cloudflare R2 或 S3 兼容存储）</h2>
+<p>用户上传由 <code>/api/upload/file</code> 处理普通文件，由 <code>/api/upload/image</code> 处理仅图片上传。两个 route 都会调用 <code>extensions/storage</code> 中的存储门面，因此 feature 代码不依赖 Cloudflare R2、UCloud US3 或任何特定对象存储 SDK。缺少存储凭据时，starter 会返回 data URL fallback，方便本地测试。</p>
+<p>Cloudflare R2 示例：</p>
+<pre><code class="language-ini">STORAGE_PROVIDER="r2"
+R2_ACCOUNT_ID="your-account-id"
+R2_BUCKET_NAME="your-bucket"
+R2_ACCESS_KEY_ID="your-access-key"
+R2_SECRET_ACCESS_KEY="your-secret-key"
+R2_PUBLIC_URL="https://your-storage-domain.example.com"</code></pre>
+<p>通用 S3 兼容存储，包括 UCloud US3：</p>
+<pre><code class="language-ini">STORAGE_PROVIDER="s3-compatible"
+STORAGE_ENDPOINT="https://s3-cn-bj.ufileos.com"
+STORAGE_BUCKET_NAME="your-bucket"
+STORAGE_REGION="cn-bj"
+STORAGE_ACCESS_KEY_ID="your-access-key"
+STORAGE_SECRET_ACCESS_KEY="your-secret-key"
+STORAGE_PUBLIC_URL="https://your-storage-domain.example.com"</code></pre>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>
