@@ -1,3 +1,8 @@
+---
+title: NimBuild Docs
+description: Public documentation for NimBuild Starter.
+---
+
 # NimBuild Docs
 
 Public documentation for NimBuild Starter, a production-ready AI SaaS starter based on Next.js.
